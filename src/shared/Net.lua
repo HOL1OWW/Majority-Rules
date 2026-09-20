@@ -106,6 +106,22 @@ function Net.func(name: string): RemoteFunction
 	return get("RemoteFunction", name) :: RemoteFunction
 end
 
+--! Server: create every declared remote up front.
+--!
+--! Remotes are otherwise made on first use, so one that only fires at the end of a match
+--! (`MatchResult`) does not exist while clients are still booting. Clients resolve remotes with
+--! WaitForChild, so that remote stalls the client for the full timeout and then errors — before it
+--! has built any UI. Creating the whole declared set at boot removes the ordering problem entirely.
+function Net.materialize()
+	assert(RunService:IsServer(), "Net.materialize is server-only")
+	for _, name in Net.Events do
+		Net.event(name)
+	end
+	for _, name in Net.Functions do
+		Net.func(name)
+	end
+end
+
 --! Server-side rate limiter. Returns true when the caller is allowed to act.
 function Net.rateLimit(bucket: { [Player]: number }, player: Player, minInterval: number): boolean
 	local now = os.clock()

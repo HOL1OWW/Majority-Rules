@@ -18,6 +18,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modifiers = require(Shared.Modifiers)
+local Net = require(Shared.Net)
 local Tags = require(Shared.Tags)
 local Log = require(Shared.Util.Log)
 
@@ -28,6 +29,10 @@ local PlayerService = require(Services.PlayerService)
 local RoundService = require(Services.RoundService)
 
 Log.info("MAJORITY RULES — server booting")
+
+-- 0. every remote exists before any client asks for one: a RemoteEvent that is only created on
+-- first use does not exist while clients are booting, and the client would wait out its timeout.
+Net.materialize()
 
 -- 1. no default respawning: this is an elimination game and the engine owns spawn timing
 PlayerService.setup()
