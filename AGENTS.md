@@ -101,6 +101,14 @@ place and repo match
 If you change the hash on one side, change it on the other — the two implementations are in
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
+**Two analyzers are installed, and they disagree usefully.** `johnnymorganz.luau-lsp` resolves types
+through `sourcemap.json`; `nightrains.robloxlsp` checks Roblox-specific things it does not. Both
+binaries ship inside their VS Code extensions, so neither needs `aftman install` — run one directly to
+get the checker's own answer instead of guessing (on this machine they live under
+`.vscode/extensions/`, and RobloxLSP logs every diagnostic it publishes to `server/log/`).
+RobloxLSP's `invalid-class-name` hint found a real bug that luau-lsp reports nothing about, so treat
+that hint as credible and see `DECISIONS.md` D-020 before dismissing it.
+
 **Instances the audit flags that are not yours to touch.** The place holds content with no file in
 this repository, so the audit reports it as `ONLY IN STUDIO`. Seen so far: a transient
 `sabuiltin_Assistant` LocalScript under `StarterGui`, which Studio's own Assistant tooling creates
@@ -135,6 +143,12 @@ is a script, so it publishes like any other.
 - Clients render UI as a pure function of replicated round state. No client round logic.
 - Naming: `PascalCase` files matching the module's table name; `MR` prefix on all tags.
 - Never use `wait()`, `spawn()` or `delay()` — use `task.wait`, `task.spawn`, `task.delay`.
+- Never test a class name with `typeof(x) == "ClassName"` — `typeof` returns the datatype, so that is
+  always false. Use `typeof(x) == "Instance" and x:IsA("ClassName")`. See `DECISIONS.md` D-020.
+- `--` is a comment; `--!` is magic-comment syntax reserved for `--!strict`, `--!nonstrict`,
+  `--!nocheck`, `--!native`, `--!nolint`. Do not use `--!` to introduce prose — some analysers read it
+  as a directive. Existing files still contain such comments, and the *first* line of each file is a
+  real directive, so only new prose comments are affected.
 - Never leave a `print` in shipped code — use `Util/Log.lua`.
 
 ---

@@ -27,17 +27,25 @@ local TransformScheduler = {}
 
 local PHASES = { "Before", "Commit", "After" }
 
+-- `typeof` reports the datatype, not the class name: typeof(aTween) is "Instance", never "Tween".
+-- A tween has to be recognised with IsA. Testing `typeof(x) == "Tween"` is always false, which
+-- collected nothing at all and let every phase continue before its geometry had stopped moving —
+-- the exact inconsistency the phases above exist to prevent.
+local function isTween(value: any): boolean
+	return typeof(value) == "Instance" and value:IsA("Tween")
+end
+
 local function collectTween(result: any, into: { Tween })
 	if result == nil then
 		return
 	end
-	if typeof(result) == "Tween" then
+	if isTween(result) then
 		table.insert(into, result)
 		return
 	end
 	if type(result) == "table" then
 		for _, item in result do
-			if typeof(item) == "Tween" then
+			if isTween(item) then
 				table.insert(into, item)
 			end
 		end

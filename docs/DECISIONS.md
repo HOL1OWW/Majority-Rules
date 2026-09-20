@@ -312,3 +312,41 @@ through Rojo's file watcher). Cheaper than a silent overwrite of committed work.
 **Related:** `.gitattributes` now pins `eol=lf`. Rojo writes LF while `core.autocrlf=true` expected
 CRLF, so every synced file showed up as modified in `git status` with an empty `git diff`. Pinning LF
 removes the disagreement between the two tools.
+
+---
+
+### D-020 — Class names are tested with `IsA`, never with `typeof`
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`typeof` reports the **datatype**, not the class name: `typeof(aTween)` is `"Instance"`, and so is
+`typeof(aPart)`. The only correct way to ask "is this a Tween?" is
+`typeof(x) == "Instance" and x:IsA("Tween")`.
+
+**Why:** `TransformScheduler.collectTween` tested `typeof(result) == "Tween"`, which is **always
+false**. The scheduler therefore collected no tweens, `Tweens.await` returned instantly against an
+empty list, and every phase ran on before its geometry had finished moving — the exact inconsistency
+the phase design exists to prevent. It failed silently: no error, no log line, and the code reads as
+if it works.
+
+Found by RobloxLSP's `invalid-class-name` hint (the string in a `typeof` comparison must be something
+`typeof` can actually return) and confirmed **in the engine**, not from documentation:
+
+```
+typeof(tween)          = Instance
+tween:IsA('Tween')     = true
+typeof(tween)=='Tween' = false
+```
+
+Measured before/after with a real 0.6s tween: the `Before` phase now waits 0.60s; with the old check
+it returned in ~0.00s.
+
+**Cost:** a class test takes two steps instead of one. Worth it, because the one-step version is
+silently always false — and `typeof(x) == "Instance"` is still the right guard before `IsA`, since
+`IsA` only exists on instances. The other `typeof` uses in the repo are correct and unaffected:
+`typeof(tool) ~= "Instance"`, `typeof(origin) == "Vector3"`, `typeof(modifierId) == "string"`.
+
+**Related:** two analyzers are installed in VS Code and **both earn their place** — `luau-lsp` (Roblox
+type definitions from `globalStorage` plus `sourcemap.json`; the one to trust on types) and
+`nightrains.robloxlsp` (whose `invalid-class-name` hint caught this, and which `luau-lsp` does not
+report). Do not "clean up" by removing either one.
