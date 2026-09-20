@@ -77,6 +77,32 @@ needs a new capability — not that the modifier should reach into `Workspace`.
 
 ---
 
+## Is the engine running the code you think it is?
+
+Studio and the repository are two copies of the same scripts, and they drift silently: an edit made
+in Studio without Ctrl+S never exists anywhere else, a file added under an unmapped `src/` directory
+is never synced, and a script created in Studio has no file at all. Twice now that has cost an hour
+of debugging a fix that was correct but never reached the engine. Do not guess — hash both sides:
+
+1. Run `tests/studio_hashes.luau` in Studio (via the Studio MCP `execute_luau` tool, datamodel
+   `Edit`).
+2. Save the returned text to `.sync-audit/place.txt` (git-ignored, so it will not be committed).
+3. `py tests/sync_audit.py --place-dump .sync-audit/place.txt`
+
+It derives instance paths from `default.project.json`, hashes every script on both sides and names
+the paths that differ — `DIFFERS`, `ONLY IN STUDIO`, `ONLY ON DISK`, `NOT MAPPED`. Exit code is 1
+when they disagree, and a clean run ends with:
+
+```
+64 compared . 64 match . 0 differ . 0 only in Studio . 0 only on disk
+place and repo match
+```
+
+If you change the hash on one side, change it on the other — the two implementations are in
+`tests/studio_hashes.luau` and `tests/sync_audit.py`.
+
+---
+
 ## Conventions
 
 - Luau, typed where it helps. Tabs for indentation (StyLua default config).

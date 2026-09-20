@@ -32,6 +32,22 @@
 			"command": "for f in $(find src -name '*.lua'); do awk -f tests/syntax_check.awk \"$f\"; done",
 			"options": { "cwd": "${workspaceFolder}" },
 			"problemMatcher": []
+		},
+		{
+			"label": "sync audit (place vs repo)",
+			"detail": "Compares every script in the place with its file. Needs a dump first: run tests/studio_hashes.luau in Studio and save its output to .sync-audit/place.txt.",
+			"type": "shell",
+			"command": "py tests/sync_audit.py --place-dump .sync-audit/place.txt",
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		},
+		{
+			"label": "print the Studio hash snippet",
+			"detail": "Prints tests/studio_hashes.luau — the code to run in Studio for the sync audit.",
+			"type": "shell",
+			"command": "py tests/sync_audit.py --print-luau",
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
 		}
 	]
 }

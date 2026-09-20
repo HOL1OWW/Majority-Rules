@@ -4,11 +4,18 @@
 build/
 sourcemap.json
 
+# Sync-audit dumps (script hashes read out of the Studio place). Regenerated on demand by
+# tests/sync_audit.py — see AGENTS.md.
+.sync-audit/
+
 # Place files are built, not committed. Arenas authored by hand are saved as
 # assets/arenas/*.rbxmx instead, which IS committed (see docs/09-SETUP.md).
 *.rbxl
 *.rbxlx
 *.rbxl.lock
+
+# Python bytecode from tests/*.py
+__pycache__/
 
 # Windows noise
 Thumbs.db
