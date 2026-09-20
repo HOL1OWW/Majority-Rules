@@ -183,36 +183,42 @@ function Hud.render()
 	for index, row in standings do
 		local entry = scoreRows[index]
 		if not entry then
-			entry = Theme.frame({
+			-- A row is a plain table holding its instances, the way VoteUI cards are. It cannot be
+			-- the frame itself: an Instance rejects unknown properties, so `frame.name = label`
+			-- throws "name is not a valid member of Frame" on every render.
+			local frame = Theme.frame({
 				Size = UDim2.new(1, 0, 0, 18),
 				BackgroundTransparency = 1,
 				LayoutOrder = index,
 			}, scoreboard)
-			entry.name = Theme.label({
-				Size = UDim2.new(1, -50, 1, 0),
-				TextSize = 13,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				Font = Theme.Font.Heading,
-			}, entry)
-			entry.points = Theme.label({
-				AnchorPoint = Vector2.new(1, 0),
-				Position = UDim2.new(1, 0, 0, 0),
-				Size = UDim2.new(0, 44, 1, 0),
-				TextSize = 13,
-				TextXAlignment = Enum.TextXAlignment.Right,
-				Font = Theme.Font.Mono,
-			}, entry)
+			entry = {
+				Frame = frame,
+				Name = Theme.label({
+					Size = UDim2.new(1, -50, 1, 0),
+					TextSize = 13,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Font = Theme.Font.Heading,
+				}, frame),
+				Points = Theme.label({
+					AnchorPoint = Vector2.new(1, 0),
+					Position = UDim2.new(1, 0, 0, 0),
+					Size = UDim2.new(0, 44, 1, 0),
+					TextSize = 13,
+					TextXAlignment = Enum.TextXAlignment.Right,
+					Font = Theme.Font.Mono,
+				}, frame),
+			}
 			scoreRows[index] = entry
 		end
-		entry.Visible = true
-		entry.LayoutOrder = index
-		entry.name.Text = string.format("%d. %s", index, row.Name)
-		entry.points.Text = Theme.formatPoints(row.Points)
-		entry.name.TextColor3 = row.IsLocal and Theme.Color.Accent or Theme.Color.PaperDim
-		entry.points.TextColor3 = row.IsLocal and Theme.Color.Accent or Theme.Color.PaperDim
+		entry.Frame.Visible = true
+		entry.Frame.LayoutOrder = index
+		entry.Name.Text = string.format("%d. %s", index, row.Name)
+		entry.Points.Text = Theme.formatPoints(row.Points)
+		entry.Name.TextColor3 = row.IsLocal and Theme.Color.Accent or Theme.Color.PaperDim
+		entry.Points.TextColor3 = row.IsLocal and Theme.Color.Accent or Theme.Color.PaperDim
 	end
 	for index = #standings + 1, #scoreRows do
-		scoreRows[index].Visible = false
+		scoreRows[index].Frame.Visible = false
 	end
 
 	-- elimination notice

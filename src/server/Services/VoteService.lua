@@ -169,7 +169,13 @@ function VoteService.open(opts)
 	end
 
 	broadcast()
-	Log.info("Ballot open (round %d): %s", state.round, table.concat(candidateIds(state.candidates), ", "))
+	if opts.TieBreak then
+		-- Same mechanism, different moment: without this the log shows a round opening twice and
+		-- it reads like a bug rather than a sudden-death revote.
+		Log.info("Sudden-death revote (round %d): %s", state.round, table.concat(candidateIds(state.candidates), ", "))
+	else
+		Log.info("Ballot open (round %d): %s", state.round, table.concat(candidateIds(state.candidates), ", "))
+	end
 	return state.candidates
 end
 
