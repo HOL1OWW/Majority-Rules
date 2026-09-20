@@ -1,0 +1,15 @@
+.freebuff/
+
+# Rojo build output and generated sourcemaps — produced, never authored.
+build/
+sourcemap.json
+
+# Place files are built, not committed. Arenas authored by hand are saved as
+# assets/arenas/*.rbxmx instead, which IS committed (see docs/09-SETUP.md).
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+
+# Windows noise
+Thumbs.db
+desktop.ini

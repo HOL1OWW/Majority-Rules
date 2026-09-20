@@ -1,0 +1,6 @@
+# Selene configuration — Roblox standard library, so Roblox globals are known.
+std = "roblox"
+
+[lints]
+# The repo is written in a deliberately explicit style; these would fight it.
+# Assignments and long functions are fine when the intent is clear.

@@ -1,0 +1,11 @@
+# StyLua configuration. `stylua --check .` is part of the definition of done.
+# Tabs, 120 columns: wide enough that the long explanatory comments stay readable,
+# narrow enough that a line of Luau is still one idea.
+
+column_width = 120
+line_endings = "Unix"
+indent_type = "Tabs"
+indent_width = 4
+quote_style = "AutoPreferDouble"
+call_parentheses = "Always"
+collapse_simple_statement = "Never"

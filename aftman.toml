@@ -1,0 +1,20 @@
+# Toolchain pins for MAJORITY RULES.
+#
+# This machine runs Aftman (v0.3.0), not Rokit, so this is the repo's toolchain manifest.
+# Rojo 7.7.0 is already downloaded in %USERPROFILE%\.aftman\tool-storage, so `rojo serve`
+# works with no network access. See docs/09-SETUP.md, Step 2.
+#
+# `rojo` only resolves from inside a folder containing this file (or a subfolder of it):
+#
+#   cd "C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote"
+#   aftman install
+#   rojo serve
+#
+# Optional extras — uncomment and run `aftman install` when you want real type checking,
+# formatting and linting in the loop:
+# stylua   = "JohnnyMorganz/StyLua@2.1.0"
+# selene   = "Kampfkarren/selene@0.28.0"
+# luau-lsp = "JohnnyMorganz/luau-lsp@1.32.2"
+
+[tools]
+rojo = "rojo-rbx/rojo@7.7.0"
