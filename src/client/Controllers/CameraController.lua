@@ -35,11 +35,16 @@ local spectateTimer = 0
 
 local VOTE_STATES = { VoteOpen = true, VoteLock = true, TieBreak = true, Reveal = true, Transform = true }
 
+-- GuiService exposes the reduced-motion preference as a plain boolean, and tells us when it
+-- changes. The previous version failed twice inside one pcall, which is why nobody ever saw it:
+-- `UserGameSettings.ReducedMotion` cannot be read from a normal script (it needs RobloxScript
+-- capability), and `Enum.ReducedMotion` does not exist at all. So `reducedMotion` was always false
+-- and the orbit camera always moved, including for players who asked it not to.
 local function detectReducedMotion()
-	pcall(function()
-		local settings = UserSettings():GetService("UserGameSettings")
-		reducedMotion = settings.ReducedMotion == Enum.ReducedMotion.Enabled
+	local ok, enabled = pcall(function()
+		return game:GetService("GuiService").ReducedMotionEnabled
 	end)
+	reducedMotion = ok and enabled == true
 end
 
 local function arenaCenter(): Vector3
@@ -176,6 +181,9 @@ function CameraController.init(options)
 	state = options.state
 	camera = workspace.CurrentCamera
 	detectReducedMotion()
+
+	-- The preference can be changed mid-session, so re-read it rather than trusting boot.
+	game:GetService("GuiService"):GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(detectReducedMotion)
 
 	state.Signals.Round:Connect(onRoundState)
 

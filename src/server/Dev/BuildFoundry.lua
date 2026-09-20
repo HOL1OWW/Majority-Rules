@@ -336,3 +336,8 @@ function BuildFoundry.build(): Model
 	Log.info("Foundry arena built in ServerStorage.Arenas")
 	return arena
 end
+
+-- Bootstrap requires this module when no arena exists in ServerStorage.Arenas, and `require` on a
+-- module that returns nothing fails with "Module code did not return exactly one value" — so the
+-- no-arena fallback used to crash instead of building one. Always return the table.
+return BuildFoundry
