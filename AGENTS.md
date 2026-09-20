@@ -101,14 +101,18 @@ place and repo match
 If you change the hash on one side, change it on the other — the two implementations are in
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
-**Known foreign instances.** The place also holds content this repository does not own, and the
-audit names it as `ONLY IN STUDIO`. Seen so far: a transient `sabuiltin_Assistant` LocalScript under
-`StarterGui`, which Studio's own Assistant tooling creates while AI tools run code; and a `Gist`
-folder under `ServerScriptService` (`Main` LocalScript + `MainMod` ModuleScript, AGPL header,
-author "Iuha Dust") paired with a `trdm` folder in `Workspace`. Neither came from this project, and
-the only plugin installed locally is Rojo. Treat an unmapped path as noise **only** if it is on this
-list — never widen the list to make a red run go green, and never delete a mapped instance you did
-not create without asking.
+**Instances the audit flags that are not yours to touch.** The place holds content with no file in
+this repository, so the audit reports it as `ONLY IN STUDIO`. Seen so far: a transient
+`sabuiltin_Assistant` LocalScript under `StarterGui`, which Studio's own Assistant tooling creates
+while AI tools run code; and a `Gist` folder under `ServerScriptService` (`Main` LocalScript +
+`MainMod` ModuleScript, AGPL header, author "Iuha Dust") alongside a `trdm` folder in `Workspace`.
+
+A flag means **unmapped**, not *junk*. Studio is a shared, live place and another contributor may be
+mid-build on exactly that thing; `Gist`/`trdm` are unexplained, so nobody has confirmed their
+purpose yet. So: report them, do not delete or restructure them, and do not "fix" them to make a red
+run go green. If the same path keeps appearing, ask a human who owns it before doing anything at all.
+Record a path here only after it is explained, and never edit `ServerStorage.Arenas` geometry or
+anything else a contributor may be working in.
 
 **When a human says "publish" (or "pull my Studio changes"), that is this audit plus the write-back:**
 run `tests/studio_dirty_check.luau` first (unsaved editor text is invisible to the audit, so skipping

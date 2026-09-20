@@ -264,6 +264,12 @@ the difference *is* the list of edits: every path reported as `DIFFERS` or `ONLY
 change somebody made in Studio, and every `ONLY ON DISK` is a file that never reached the place. The
 agent pulls exactly those, so the author never has to write down what they touched.
 
+**One thing `ONLY IN STUDIO` does not mean: junk.** It means *no file in this repository claims this
+instance* — which is equally the signature of a half-finished idea from another contributor, since
+the place is shared and live. Report such a path, ask who owns it, and leave it alone. Do not delete
+it, do not delete it to get a green run, and do not assume an AGPL header or an unfamiliar author
+makes it disposable. Current known examples and the handling rule are in `AGENTS.md`.
+
 The loop:
 
 1. Author edits in Studio and presses **Ctrl+S**.
