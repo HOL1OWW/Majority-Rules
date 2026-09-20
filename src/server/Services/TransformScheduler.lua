@@ -35,6 +35,19 @@ local function isTween(value: any): boolean
 	return typeof(value) == "Instance" and value:IsA("Tween")
 end
 
+-- How long this phase's own tweens actually need: the longest declared tween time plus a small
+-- margin, clamped so a phase can neither wait less than a beat nor exceed the transform ceiling.
+local function phaseTimeout(tweens: { Tween }, ceiling: number): number
+	local longest = 0
+	for _, tween in tweens do
+		local info = tween.TweenInfo
+		if info and info.Time and info.Time > longest then
+			longest = info.Time
+		end
+	end
+	return math.clamp(longest + 0.25, 2, ceiling)
+end
+
 local function collectTween(result: any, into: { Tween })
 	if result == nil then
 		return
@@ -84,6 +97,7 @@ function TransformScheduler.run(ctx, collected, budget: number?)
 		end)
 
 		local tweens = {}
+		local ranInPhase = {}
 		for _, entry in entries do
 			local channel = entry.Step.Channel or "misc"
 			local key = phase .. "/" .. channel
@@ -100,6 +114,7 @@ function TransformScheduler.run(ctx, collected, budget: number?)
 			else
 				claimed[key] = entry.ModifierId
 				table.insert(executed, { ModifierId = entry.ModifierId, Channel = channel, Phase = phase })
+				table.insert(ranInPhase, entry.ModifierId .. "/" .. channel)
 
 				local ok, result = pcall(entry.Step.Run, ctx)
 				if not ok then
@@ -111,7 +126,27 @@ function TransformScheduler.run(ctx, collected, budget: number?)
 			end
 		end
 
-		Tweens.await(tweens, math.max(ceiling / 2, 2))
+		-- Wait for what the steps actually started, not for a fixed fraction of the ceiling. A step
+		-- whose tween is simply longer than ceiling/2 is not a hang, and cancelling it stops the floor
+		-- short of the shape the vote asked for: SmallMap tweens over 2.40s while ceiling/2 was 2.25s,
+		-- so every shrink was cancelled a tenth of a second early and logged as a defect.
+		--
+		-- Debug level, so this is Studio-only: which steps ran in this phase, how many tweens they
+		-- produced, and what the phase actually cost against what it was allowed.
+		local timeout = phaseTimeout(tweens, ceiling)
+		local startedAt = os.clock()
+		local finished = Tweens.await(tweens, timeout)
+		local waited = os.clock() - startedAt
+		Log.debug(
+			"Transform phase %s: %d step(s) [%s], %d tween(s), awaited %.2fs of %.2fs, %s",
+			phase,
+			#ranInPhase,
+			table.concat(ranInPhase, " "),
+			#tweens,
+			waited,
+			timeout,
+			finished and "all completed" or "TIMED OUT"
+		)
 	end
 
 	for _, conflict in conflicts do
