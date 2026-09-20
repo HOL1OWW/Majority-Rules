@@ -3,6 +3,17 @@
 Hand-authored arenas live here, one `.rbxmx` per arena, named to match the model in
 `ServerStorage.Arenas` (so `Foundry` → `Foundry.rbxmx`).
 
+## Current state
+
+`Foundry.rbxm` — **binary**, 8.4 KB, exported 2026-09-20. Contains the real arena: `Geometry`,
+`Spawns`, `LootPoints`, `VoteShowcase`, `Transforms`, `Hazards`, `Variants`, with the
+`TransformGroup` attributes the modifiers read.
+
+Binary works everywhere — Studio and Rojo both load it — but git stores it as one opaque blob, so a
+change to the arena shows up as "binary file changed" and cannot be reviewed. Re-saving it as XML
+(`.rbxmx`) makes geometry changes readable. Worth doing before the arena starts changing often,
+because reviewing each other's map edits is the entire reason three people are on this repository.
+
 ## Exporting an arena from Studio
 
 Play mode must be stopped first.
