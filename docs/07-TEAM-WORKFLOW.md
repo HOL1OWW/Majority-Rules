@@ -268,8 +268,17 @@ The loop:
 
 1. Author edits in Studio and presses **Ctrl+S**.
 2. Anyone says **"publish"**.
-3. The agent hashes the place, pulls the differing scripts' source, writes the matching files, shows
-   the diff, commits, and pushes.
+3. The agent:
+   1. runs `tests/studio_dirty_check.luau`, which compares the *editor* text of every open script with
+      the DataModel — an unsaved buffer is invisible to every other check, so this is what stops a
+      publish from quietly leaving work behind;
+   2. hashes the place against the repository, so the difference *is* the list of edits;
+   3. reads exactly the differing scripts and writes the matching files, and deletes a file when the
+      corresponding script was deleted in Studio (that shows up as `ONLY ON DISK`);
+   4. shows the diff, commits, and pushes.
+
+"Publish" here means **GitHub**. Publishing the experience to Roblox for players is a different act,
+done from Studio (`File → Publish to Roblox`), and only a human can do it.
 
 Two facts make this work for a contributor with no git tooling:
 

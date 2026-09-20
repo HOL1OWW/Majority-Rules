@@ -102,10 +102,16 @@ If you change the hash on one side, change it on the other — the two implement
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
 **When a human says "publish" (or "pull my Studio changes"), that is this audit plus the write-back:**
-run the dump, take every `DIFFERS` and `ONLY IN STUDIO` path, read those scripts from Studio, write
-them to their mapped files, show the diff, commit, push. Nobody has to name the scripts they touched —
-the hash difference is the list. See `docs/07-TEAM-WORKFLOW.md` section 8. Remember that this covers
-*script source only*: geometry, attributes and tags produce no file and still need an export.
+run `tests/studio_dirty_check.luau` first (unsaved editor text is invisible to the audit, so skipping
+it silently loses work), then the dump, then take every `DIFFERS` and `ONLY IN STUDIO` path, read
+those scripts from Studio, write them to their mapped files, delete a file when its script was
+deleted in Studio (`ONLY ON DISK`), show the diff, commit, push. Nobody has to name the scripts they
+touched — the hash difference is the list. See `docs/07-TEAM-WORKFLOW.md` section 8.
+
+Remember that this covers **script source only**. Geometry, attributes and tags produce no file, and
+no Studio tool can export an instance to disk, so a hand-built arena still needs a human
+`Save to File`. An arena built by code (`src/server/Dev/BuildFoundry.lua` is one) needs nothing — it
+is a script, so it publishes like any other.
 
 ---
 

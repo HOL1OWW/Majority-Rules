@@ -25,6 +25,18 @@ Play mode must be stopped first.
    you want to be able to read and review its diff in git; binary works but is opaque.
 3. Commit it. `*.rbxm` and `*.rbxmx` are tracked; built place files (`*.rbxl`, `*.rbxlx`) are not.
 
+## Why a Studio-built arena always needs one manual click
+
+Checked 2026-09-20: nothing in Studio can write an instance out to disk — not to a file, not to an
+agent, not to a plugin — so a hand-built arena can never version itself. `Save to File` is a human
+click, and it is the only manual step anywhere in the Studio-first publish flow. Everything after it
+is automatic once someone says "publish".
+
+The alternative with no click at all is to build the arena **in code**: `BuildFoundry` is just a
+script, so it already flows through the normal sync and publish path, diffs as text, and can be edited
+in Studio by anyone on the team. The practical split: geometry you want reviewed and tuned belongs in
+a generator script, geometry you want to sculpt by hand belongs in a `.rbxmx` with this click.
+
 ## What this file is, and is not
 
 **It is a versioned copy.** The game does not currently load it: `assets/` is not mapped in
