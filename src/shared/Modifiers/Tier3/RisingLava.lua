@@ -19,7 +19,7 @@ return {
 	Tier = 3,
 	Weight = 10,
 	Tags = { "Environment", "Chaos" },
-	Conflicts = { "Shrink", "Collapse" },
+	Conflicts = { "Shrink", "CollapsingFloor" },
 	Requires = { "Hazard", "Lava" },
 	Effects = { "Hazard", "Lava" },
 

@@ -64,6 +64,11 @@ rojo serve            # leave running; `rojo` only resolves inside this folder
 Then in Studio: **Plugins → Rojo → Connect**. Editing any `.lua` file syncs into the open place in
 about a second. `rojo build -o build/MajorityRules.rbxl` produces an uploadable place file.
 
+**When a fix appears to do nothing, suspect delivery before suspecting the fix.** After a Play/Edit
+cycle the plugin can hold a socket open while no longer patching, so Studio runs stale code. Restart
+`rojo serve`, then read the script back *from Studio* to confirm the change arrived — the sequence
+that matters is repo → place → runtime, and only the last of those shows up in the Output window.
+
 ---
 
 ## The arena, as it stands in the place

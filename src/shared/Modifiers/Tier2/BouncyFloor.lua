@@ -26,7 +26,9 @@ return {
 						Elasticity = 0.85,
 						Friction = 1.1,
 					})
-					ctx.Arena:SetGroupMaterial("Floor", Enum.Material.Trampoline) -- placeholder until art lands
+					-- The bounce itself is the Elasticity above; this is look only. Rubber is the one
+					-- material that reads as bouncy, and unlike a made-up name it exists in the enum.
+					ctx.Arena:SetGroupMaterial("Floor", Enum.Material.Rubber)
 				end,
 			},
 		}

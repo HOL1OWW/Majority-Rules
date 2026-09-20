@@ -155,6 +155,25 @@ end
 -- Modifier orchestration
 -- ---------------------------------------------------------------------------------------
 
+--! Modifiers call capabilities with colon syntax (`ctx.Arena:SetGravityScale(1.85)`), exactly as
+--! `docs/02-MODIFIER-API.md` documents them. A colon call passes the table itself as the first
+--! argument, and the services define plain functions, so binding here is what makes
+--! `SetGravityScale(scale)` receive `scale` rather than the whole service table. Without it every
+--! parameterised capability call is silently shifted by one argument.
+local function capabilities(source: { [string]: any }): { [string]: any }
+	local out = {}
+	for key, value in source do
+		if type(value) == "function" then
+			out[key] = function(_, ...)
+				return value(...)
+			end
+		else
+			out[key] = value
+		end
+	end
+	return out
+end
+
 local function buildCtx(roundNumber: number, appliedIds: { string }, rng: Random, length: number)
 	local label = table.concat(appliedIds, "+")
 	return {
@@ -169,11 +188,11 @@ local function buildCtx(roundNumber: number, appliedIds: { string }, rng: Random
 		},
 		ModifierIds = appliedIds,
 		Rng = rng,
-		Arena = ArenaService,
-		Gameplay = GameplayService,
-		Loot = LootService,
-		Players = PlayerService,
-		Audio = AudioService,
+		Arena = capabilities(ArenaService),
+		Gameplay = capabilities(GameplayService),
+		Loot = capabilities(LootService),
+		Players = capabilities(PlayerService),
+		Audio = capabilities(AudioService),
 		Log = function(fmt: string, ...)
 			Log.debug("[" .. label .. "] " .. tostring(fmt), ...)
 		end,
@@ -679,7 +698,7 @@ function RoundService.start()
 		pcall(VoteService.objection, player)
 	end)
 
-	Net.func(Net.Events.RoundInfo).OnServerInvoke = function(player)
+	Net.func(Net.Functions.RoundInfo).OnServerInvoke = function(player)
 		return snapshot()
 	end
 

@@ -301,6 +301,13 @@ local function updateTimer()
 end
 
 function VoteUI.showStamp(modifierNames: { string }, duration: number)
+	-- A short round can resolve before the client has built this UI: Bootstrap connects the
+	-- replication handlers before it calls `init`. There is nothing to draw on yet, so skip it
+	-- rather than erroring on a nil label.
+	if not stampOverlay or not stampTitle or not stampDetail then
+		return
+	end
+
 	stampTitle.Text = "APPROVED"
 	stampDetail.Text = table.concat(modifierNames, "  +  ")
 	stampOverlay.Visible = true
@@ -321,6 +328,10 @@ function VoteUI.showStamp(modifierNames: { string }, duration: number)
 end
 
 function VoteUI.hideStamp()
+	if not stampOverlay then
+		return
+	end
+
 	stampOverlay.Visible = false
 end
 

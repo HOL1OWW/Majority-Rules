@@ -62,6 +62,16 @@ local function folder(): Instance
 end
 
 local function get(className: string, name: string): Instance
+	-- Events and Functions are separate tables, and a name read from the wrong one is nil.
+	-- Without this guard the failure surfaces as "attempt to concatenate string with nil"
+	-- somewhere in here, which says nothing about which remote was wrong.
+	assert(
+		type(name) == "string",
+		"[Net] remote name must be a string, got "
+			.. tostring(name)
+			.. " (was it declared in Net.Events or Net.Functions?)"
+	)
+
 	local key = className .. ":" .. name
 	local existing = cache[key]
 	if existing and existing.Parent then

@@ -83,7 +83,7 @@ function PlayerService.spawn(player: Player): boolean
 
 	GameplayService.applyBaseline(player, character)
 	local CombatService = require(script.Parent.CombatService)
-	CombatService.ApplyLoadout(player, GameplayService.currentLoadout())
+	CombatService.ApplyLoadout(player, CombatService.currentLoadout())
 	if frozen then
 		PlayerService.freezeCharacter(player, true)
 	end

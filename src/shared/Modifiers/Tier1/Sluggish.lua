@@ -10,7 +10,7 @@ return {
 	Tier = 1,
 	Weight = 9,
 	Tags = { "Mobility" },
-	Conflicts = { "FastWalk" },
+	Conflicts = { "SpeedBoost" },
 	Effects = { "SlowWalk" },
 
 	Steps = function(ctx)

@@ -29,7 +29,7 @@ local remotes = {
 	VoteCast = Net.event(Net.Events.VoteCast),
 	Objection = Net.event(Net.Events.Objection),
 	WeaponFire = Net.event(Net.Events.WeaponFire),
-	RoundInfo = Net.func(Net.Events.RoundInfo),
+	RoundInfo = Net.func(Net.Functions.RoundInfo),
 }
 
 -- ---------------------------------------------------------------------------------------

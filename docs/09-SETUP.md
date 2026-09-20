@@ -323,6 +323,18 @@ curl -s http://127.0.0.1:34872/api/rojo | tr -c '[:print:]' '\n' | grep -i proje
 `Ctrl+C` in its terminal. This is the single most likely cause of "I followed the setup and nothing
 happened" — the sync works perfectly, it is just feeding Studio an empty skeleton.
 
+**Rojo is connected, but your edits stop reaching Studio.** Seen after a Play/Edit cycle: the plugin
+holds a socket open to the server while no longer applying patches, so Studio quietly runs stale
+code while the repository looks updated. This is the most misleading failure mode in the whole
+setup — a fix that "does not work" when it was never delivered. Restart the server (`Ctrl+C`, then
+`rojo serve`): the plugin reconnects on its own and does a full reconcile. When a change appears to
+do nothing, read the script back from Studio before doubting the change:
+
+```lua
+-- via the Studio MCP tools, or just open the script in Explorer
+script_read(target_file = "ReplicatedStorage.Shared.Net", start_line_one_indexed = 64, end_line_one_indexed_inclusive = 70)
+```
+
 **Scripts appear but nothing happens on Play.** Look for a red line in the Output window. Every
 service logs through `Log`, so silence means the bootstrap itself did not run — check that
 `ServerScriptService.MajorityRulesServer.Bootstrap` exists and is a `Script` (not a

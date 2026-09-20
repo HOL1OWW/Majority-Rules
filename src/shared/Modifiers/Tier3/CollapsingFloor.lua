@@ -20,7 +20,7 @@ return {
 	Tier = 3,
 	Weight = 10,
 	Tags = { "Spatial", "Chaos" },
-	Conflicts = { "Shrink", "ZeroFriction" },
+	Conflicts = { "Shrink", "IceFloor" },
 	Requires = { "Tiles" },
 	Effects = { "Collapse" },
 
