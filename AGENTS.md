@@ -8,6 +8,11 @@ three stacked chaos modifiers.
 `docs/01-ARENA-CONTRACT.md` (map work) or `docs/02-MODIFIER-API.md` (systems work) before
 writing code or geometry.
 
+**Picking this up cold — a new thread, a new machine, or future-you?** Read
+`docs/10-HANDOFF.md` first. It records what is built, what is installed on the dev machine, what
+is half-done, and the next three steps. Do not re-derive state from the code if that file can
+answer it; update that file when the state changes.
+
 ---
 
 ## The hard rules
