@@ -254,6 +254,46 @@ exists to prevent.
 There is also a one-shot `rojo syncback` for pulling an existing place *into* the project layout,
 which is the reverse direction of everything above.
 
+### Publishing Studio-first work — no file names, nothing installed on the author's machine
+
+This is the default workflow for anyone who would rather work only in Studio, which is how a second
+contributor participates without installing Rojo, VS Code or GitHub Desktop at all.
+
+**Nothing has to be named.** `tests/sync_audit.py` compares the place with the repository by hash, so
+the difference *is* the list of edits: every path reported as `DIFFERS` or `ONLY IN STUDIO` is a
+change somebody made in Studio, and every `ONLY ON DISK` is a file that never reached the place. The
+agent pulls exactly those, so the author never has to write down what they touched.
+
+The loop:
+
+1. Author edits in Studio and presses **Ctrl+S**.
+2. Anyone says **"publish"**.
+3. The agent hashes the place, pulls the differing scripts' source, writes the matching files, shows
+   the diff, commits, and pushes.
+
+Two facts make this work for a contributor with no git tooling:
+
+- **Team Create.** Editing the same place means every collaborator's saved edits land in the same
+  DataModel, and that is the DataModel the agent reads. Nothing needs installing or configuring on
+  their machine. If they are instead working in a *separate copy* of the place, the agent cannot see
+  their work at all — they either join the team place, or publish their copy for someone to open here.
+- **The agent can push.** The credential manager on the dev machine authenticates `git push`
+  (verified 2026-09-20: `git push --dry-run` authenticated and reported everything up to date), so
+  "commit and push" is one act on this side. Nothing is published by accident, though — it happens
+  when it is asked for.
+
+Caveats to state out loud, because each one looks like "the sync is broken":
+
+- **Ctrl+S.** Unsaved script text is not in the DataModel and cannot be read by anything.
+- **Drafting mode.** A teammate in a Team Create *draft* has not changed the shared DataModel yet;
+  their work appears when they publish the draft.
+- **Geometry is not covered.** The audit compares *scripts*. Parts, positions, attributes and tags are
+  not script source, so moving a wall or adding cover produces no file at all. Arena changes still need
+  `Save to File` → `assets/arenas/<Arena>.rbxmx`, which is a click a human must make, or the arena has
+  to become Rojo-owned — see `assets/arenas/README.md` for that trade-off.
+- **The trigger is a message, not a daemon.** An agent only acts when it is told to; it cannot watch
+  Studio by itself.
+
 What you give up by staying in Studio: `luau-lsp` type checking, `stylua` formatting, `selene`
 lints, and reviewable diffs in an editor. That costs little for a tweak and a lot for a refactor
 across many files — so it is a per-task choice, not a permanent one.

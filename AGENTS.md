@@ -101,6 +101,12 @@ place and repo match
 If you change the hash on one side, change it on the other — the two implementations are in
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
+**When a human says "publish" (or "pull my Studio changes"), that is this audit plus the write-back:**
+run the dump, take every `DIFFERS` and `ONLY IN STUDIO` path, read those scripts from Studio, write
+them to their mapped files, show the diff, commit, push. Nobody has to name the scripts they touched —
+the hash difference is the list. See `docs/07-TEAM-WORKFLOW.md` section 8. Remember that this covers
+*script source only*: geometry, attributes and tags produce no file and still need an export.
+
 ---
 
 ## Conventions
