@@ -213,6 +213,16 @@ exists to prevent.
    it as **experimental**, so prove it before trusting it: change a string in a script in Studio,
    save, then run `git diff` and confirm the change appears in the file. If it does, Studio-only
    scripting is viable.
+
+   Two things about that panel will confuse you, straight from the plugin's own source:
+   - It carries an **`UNSTABLE` badge**. That is a severity tag, not a permission gate — the same
+     tag sits on *Open Scripts Externally* and *Auto Connect Playtest Server*. It means "no
+     guarantees", not "you may not use this".
+   - The toggle is **greyed out and unclickable while Rojo is connected**, because the plugin sets
+     `locked = syncActive`. Its tooltip says it exactly: *"Cannot change while currently syncing.
+     Disconnect first."* So the order is **Ctrl+S in Studio → Disconnect → set the toggle →
+     Connect again.** The setting persists, so this is one-time per machine — and it is per machine,
+     because it lives in plugin settings, not in `default.project.json`.
 2. **Studio's native Script Sync** — Roblox's own feature, now in full release, two-way and resumed
    automatically when the place reopens. Right-click a Folder of scripts → *Sync with Directory…*.
    It expects its own file conventions (`.luau` suffixes, `init.luau` for folders), which are close
