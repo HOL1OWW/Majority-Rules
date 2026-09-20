@@ -281,3 +281,34 @@ unlike the code.
 **Cost:** StyLua, Selene and Luau LSP are not pinned yet — they are commented out in `aftman.toml`,
 so the awk structure checker is still the only automated check. Rokit can replace Aftman later in one
 commit; nothing in `src/` cares which manager resolves `rojo`.
+
+---
+
+### D-019 — Rojo's Two-Way Sync stays off; the working tree is the single writer
+
+**Status:** accepted · **Date:** 2026-09-20
+
+Scripts are edited in `src/` (by hand, by VS Code, or by an agent) and Rojo pushes them one way into
+Studio. Studio-side script edits are brought back deliberately, not automatically.
+
+**Why:** the feature was tested properly rather than guessed at. It does work — a one-line change to
+`Util/Log.lua` in Studio grew the file on disk 1264 → 1307 bytes in about a second — but it is not
+safe to leave on. Reverting that change in Studio did not survive: the server's copy was re-applied
+to Studio, Studio re-sent it, and the file was rewritten every few seconds with unchanged content
+while the plugin logged dozens of `Write response` entries. A deliberate change to the repository was
+overwritten by a stale copy without any prompt, which is the exact failure mode this repository
+exists to prevent. The plugin itself tags the setting `unstable`.
+
+Two facts worth keeping, both read from the plugin's source rather than inferred:
+- Detection is `instance.Changed` on instances Rojo owns, so **an unsaved script buffer is invisible**
+  — Ctrl+S is what makes a Studio edit real. Most "my edit didn't sync" cases end here.
+- Turning the setting on or off requires **Disconnect first**: `locked = syncActive` greys the toggle
+  out while a session is live.
+
+**Cost:** if you want to script in Studio, an explicit step is needed — ask for the change to be pulled
+into the repo, or use Studio's native Script Sync (a separate, released mechanism that does not route
+through Rojo's file watcher). Cheaper than a silent overwrite of committed work.
+
+**Related:** `.gitattributes` now pins `eol=lf`. Rojo writes LF while `core.autocrlf=true` expected
+CRLF, so every synced file showed up as modified in `git status` with an empty `git diff`. Pinning LF
+removes the disagreement between the two tools.

@@ -207,22 +207,40 @@ arenas in Studio is the intended workflow and no sync overwrites it. Re-export
 them at once — two systems owning the same Script instances is precisely the drift this repository
 exists to prevent.
 
-1. **Rojo's own two-way sync** — keeps this repo's layout and needs no new tooling. Enable
-   **Two-Way Sync** in the Rojo Studio plugin (the `twoWaySync` setting, shipped in 7.7.0). Edits you
-   make to a script's source in Studio are then written back to the matching file. Upstream documents
-   it as **experimental**, so prove it before trusting it: change a string in a script in Studio,
-   save, then run `git diff` and confirm the change appears in the file. If it does, Studio-only
-   scripting is viable.
+1. **Rojo's own two-way sync — tested on 2026-09-20, and NOT recommended for this project.** It
+   does work, but it fights the repository. Leave it **off** unless you specifically go looking for
+   this experiment again.
 
-   Two things about that panel will confuse you, straight from the plugin's own source:
-   - It carries an **`UNSTABLE` badge**. That is a severity tag, not a permission gate — the same
-     tag sits on *Open Scripts Externally* and *Auto Connect Playtest Server*. It means "no
-     guarantees", not "you may not use this".
-   - The toggle is **greyed out and unclickable while Rojo is connected**, because the plugin sets
-     `locked = syncActive`. Its tooltip says it exactly: *"Cannot change while currently syncing.
-     Disconnect first."* So the order is **Ctrl+S in Studio → Disconnect → set the toggle →
-     Connect again.** The setting persists, so this is one-time per machine — and it is per machine,
-     because it lives in plugin settings, not in `default.project.json`.
+   What was proven, in order:
+   - **A Studio edit only counts if you save it.** The plugin watches `instance.Changed` on the
+     instances Rojo owns (`ServeSession.lua` → `InstanceMap` → `instance.Changed`), so text sitting
+     in the script editor buffer is invisible to it. **Ctrl+S is what makes an edit real** — no save,
+     no sync, no warning. This is the single most likely reason a Studio edit "didn't reach the
+     file": it was never written into the DataModel at all.
+   - **The write path itself works.** Appending a comment to `Util/Log.lua`'s `Source` grew the file
+     on disk from 1264 to 1307 bytes within about a second, and the Output window logged
+     `[Rojo-Info] Write response:` for each POST to `/api/write`.
+   - **It then went into a feed-back loop.** Reverting the same change in Studio did not stick: the
+     server's copy was re-applied to Studio, Studio re-sent it, and the file was rewritten every few
+     seconds (mtime advancing 22:39:10 → 22:39:22 → 22:39:35 → 22:39:48 with unchanged content) while
+     dozens of `Write response` lines piled up. The change had to be recovered with
+     `git checkout -- <file>` and both sides let converge. This is what the `UNSTABLE` badge is
+     actually warning about, and it is why this repo treats **the file on disk as the only writer**.
+
+   Settings-panel details you will otherwise trip over:
+   - The `UNSTABLE` tag is a severity badge, not a permission gate — the same tag sits on *Open
+     Scripts Externally* and *Auto Connect Playtest Server*.
+   - The toggle is **greyed out while Rojo is connected**, because the plugin sets
+     `locked = syncActive`; its tooltip says *"Cannot change while currently syncing. Disconnect
+     first."* So: **Ctrl+S → Disconnect → set the toggle → Connect.** To turn it back off, the same
+     three steps in reverse.
+   - The setting lives in **plugin settings**, per machine, not in `default.project.json` — your
+     brother has to set it (or not) himself.
+
+   If you do run it, the check that settles arguments is to hash both sides: run a Luau loop over the
+   four mapped services summing `djb2` of every `Script.Source`, and compare with the same `djb2`
+   computed over `src/**/*.lua` in bash. Identical totals mean the place and the repo really agree,
+   which is how the "my edit vanished" question was answered here.
 2. **Studio's native Script Sync** — Roblox's own feature, now in full release, two-way and resumed
    automatically when the place reopens. Right-click a Folder of scripts → *Sync with Directory…*.
    It expects its own file conventions (`.luau` suffixes, `init.luau` for folders), which are close

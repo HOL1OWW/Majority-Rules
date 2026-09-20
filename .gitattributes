@@ -1,2 +1,21 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalize line endings to LF, in the repository and in the working tree.
+#
+# Rojo writes script sources with LF (Studio's `Source` uses \n). With
+# `core.autocrlf=true` and only `text=auto`, git checks files out as CRLF,
+# so every file Rojo touches in the working tree looks modified to
+# `git status` while `git diff` prints nothing. Pinning `eol=lf` removes the
+# disagreement: what Rojo writes is what git expects.
+* text=auto eol=lf
+
+# Binary assets — never convert these.
+*.rbxm  binary
+*.rbxl  binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.ogg   binary
+*.mp3   binary
+
+# Rojo's XML formats are text and should diff.
+*.rbxmx text eol=lf
+*.rbxls text eol=lf
