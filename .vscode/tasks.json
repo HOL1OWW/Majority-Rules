@@ -1,0 +1,37 @@
+{
+	// VS Code → Terminal → Run Task…  (or Ctrl+Shift+P → "Run Task")
+	// These exist so starting the sync server is a menu item rather than a command you have to
+	// remember, and so it always runs from the workspace root — `rojo` only resolves inside a
+	// folder containing aftman.toml, and a server started from the wrong folder syncs an empty
+	// skeleton into the place while looking perfectly healthy.
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "rojo serve",
+			"detail": "Start the sync server. Leave the terminal open, then click Connect in Studio's Rojo panel.",
+			"type": "shell",
+			"command": "rojo serve",
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": [],
+			"isBackground": true,
+			"presentation": { "reveal": "always", "panel": "dedicated" },
+			"runOptions": { "instanceLimit": 1 }
+		},
+		{
+			"label": "rojo build (place file)",
+			"detail": "Build build/MajorityRules.rbxl from the project tree. Scripts only — arena geometry is not included.",
+			"type": "shell",
+			"command": "rojo build -o build/MajorityRules.rbxl",
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		},
+		{
+			"label": "structure check (awk)",
+			"detail": "The temporary Luau structure check, until luau-lsp analyze is wired up.",
+			"type": "shell",
+			"command": "for f in $(find src -name '*.lua'); do awk -f tests/syntax_check.awk \"$f\"; done",
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		}
+	]
+}
