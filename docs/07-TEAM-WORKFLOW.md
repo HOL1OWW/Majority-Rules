@@ -184,12 +184,51 @@ they are in place.
 | Phase | State |
 | --- | --- |
 | 0 — scaffold, contract, validator, gray-box Foundry arena | **done** |
-| 1 — vertical slice: lobby → vote → transform → round → results | **code complete, awaiting a Rojo-synced playtest** |
+| 1 — vertical slice: lobby → vote → transform → round → results | **done** — booted, voted, transformed and scored across clean 3-round matches on 2026-09-20 |
 | 2 — engine v2: stacking, tiers, seeds, variants, emitters | **done** |
-| 3 — combat depth: weapon registry, crates, hazards, attribution | **done** |
+| 3 — combat depth: weapon registry, crates, hazards, attribution | **code complete, never fired** (no playtest has had two players) |
 | 4 — presentation: cinematic camera, vote UI, verdict stamp | **partial** (audio ids and Clerk model outstanding) |
 | 5 — meta: saves, Clout, missions, mastery, shop, analytics | **not started** (analytics hooks exist) |
 | 6 — monetisation + compliance | **not started** (`Economy.Enabled = false`, service inert by design) |
+
+**Never exercised at all:** combat — hitscan, damage, elimination, points and every modifier that
+depends on them — plus 8-player rounds, and the mobile and console input paths.
+
+---
+
+## 8. Working without VS Code (scripting from Studio)
+
+You never need VS Code for **map work**, and this is the part people get wrong. Arena geometry is not
+Rojo-managed: `ServerStorage.Arenas` is marked `$ignoreUnknownInstances`, so building and editing
+arenas in Studio is the intended workflow and no sync overwrites it. Re-export
+`assets/arenas/<arena>.rbxm` after significant geometry changes, per `assets/arenas/README.md`.
+
+**Scripts** are owned by whatever is syncing them, so pick exactly one of these. Do not run two of
+them at once — two systems owning the same Script instances is precisely the drift this repository
+exists to prevent.
+
+1. **Rojo's own two-way sync** — keeps this repo's layout and needs no new tooling. Enable
+   **Two-Way Sync** in the Rojo Studio plugin (the `twoWaySync` setting, shipped in 7.7.0). Edits you
+   make to a script's source in Studio are then written back to the matching file. Upstream documents
+   it as **experimental**, so prove it before trusting it: change a string in a script in Studio,
+   save, then run `git diff` and confirm the change appears in the file. If it does, Studio-only
+   scripting is viable.
+2. **Studio's native Script Sync** — Roblox's own feature, now in full release, two-way and resumed
+   automatically when the place reopens. Right-click a Folder of scripts → *Sync with Directory…*.
+   It expects its own file conventions (`.luau` suffixes, `init.luau` for folders), which are close
+   to but not identical with this repo's Rojo layout (`.lua`, `.server.lua`, `.client.lua`). Choosing
+   it means converting the tree and dropping Rojo for scripts.
+3. **Rojo one-way, and have the agent pull your edit back.** Edit in Studio, then ask for the change
+   to be brought into the repo: the agent reads the script from Studio and writes the file, so the
+   repository stays the source of truth and the change stays reviewable. No experimental features.
+   Slowest, least risk.
+
+There is also a one-shot `rojo syncback` for pulling an existing place *into* the project layout,
+which is the reverse direction of everything above.
+
+What you give up by staying in Studio: `luau-lsp` type checking, `stylua` formatting, `selene`
+lints, and reviewable diffs in an editor. That costs little for a tweak and a lot for a refactor
+across many files — so it is a per-task choice, not a permanent one.
 | 7 — content scale to 40+ modifiers, 8+ arenas | **23 modifiers, 1 arena** |
 
 Next three jobs, in order: **connect Rojo and playtest a full match**, **build the Clerk**, **add
