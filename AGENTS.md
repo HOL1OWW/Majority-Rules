@@ -101,6 +101,15 @@ place and repo match
 If you change the hash on one side, change it on the other — the two implementations are in
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
+**Known foreign instances.** The place also holds content this repository does not own, and the
+audit names it as `ONLY IN STUDIO`. Seen so far: a transient `sabuiltin_Assistant` LocalScript under
+`StarterGui`, which Studio's own Assistant tooling creates while AI tools run code; and a `Gist`
+folder under `ServerScriptService` (`Main` LocalScript + `MainMod` ModuleScript, AGPL header,
+author "Iuha Dust") paired with a `trdm` folder in `Workspace`. Neither came from this project, and
+the only plugin installed locally is Rojo. Treat an unmapped path as noise **only** if it is on this
+list — never widen the list to make a red run go green, and never delete a mapped instance you did
+not create without asking.
+
 **When a human says "publish" (or "pull my Studio changes"), that is this audit plus the write-back:**
 run `tests/studio_dirty_check.luau` first (unsaved editor text is invisible to the audit, so skipping
 it silently loses work), then the dump, then take every `DIFFERS` and `ONLY IN STUDIO` path, read
