@@ -602,3 +602,293 @@ that fails on the defect and passes on the fix is evidence, and a check that nev
 **What it cannot see:** if a loadout modifier's own step failed outright, the round's loadout is still the
 default and a player holding the default matches — a false pass. Closing that needs the modifier's declared
 list, which is not exposed anywhere. Documented in the module header rather than papered over.
+
+---
+
+### D-028 — The reference arena is designed against a measured gate, and the gate now measures clearance
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`ClearanceRadius` was documented in the contract as *"how much open space a crate needs, used by
+**tooling**"* and no tooling had ever read it, so the first Foundry layout passed the validator while being
+unplayable in four spawns out of eight. The validator now measures the crate `LootService` actually
+builds — 3×3×3, spawned 2.5 studs above the loot point — against the real (rotated) cover boxes, and
+errors when a crate would spawn inside cover or closer than the clearance it declares.
+
+That check failed the layout it had been blessing, in **ten** places: four loot points whose crates spawn
+inside cover (invisible, and takeable *through* it because the prompt sets `RequiresLineOfSight = false`),
+four spawns inside cover (the player is ejected when cover rises), and two loot points 6.36 studs from
+cover while declaring 8.
+
+The arena was rebuilt rather than patched: a colonnade of eight 7×6×7 cover pieces at radius 15, spawns
+half a slot out of phase at radius 26 so every spawn is equidistant from cover and none sits inside it,
+5 loot points (centre plus diagonals), 8-stud tiles instead of 20 (64 of them, so a collapse removes a tile
+a player can see coming), and walls 26 high against `LowGravity`'s own 22.8-stud jump apex.
+
+**Verification.** `ArenaValidator.validate(Foundry)` → `ok=true`, 107 parts, 8 spawns, 5 loot, 4 cameras,
+`minLootClearance=9.5` against a declared 8, 0 errors and 0 warnings. Sightlines measured by raycast at
+chest height over 7260 point pairs: **100% clear with cover hidden** (round 1 really is an open square)
+and **39% clear with cover up**, median line 33.9 → 24.7 studs. Full numbers, the deliberate aligned fire
+lanes, and the two probe traps (`require` caching, and `CanQuery = false` not applying within the frame)
+are in `docs/13-ARENA-DESIGN.md`.
+
+**Cost:** the reference arena is now four times the parts (107) for the same play space, and its layout is
+opinionated — a symmetric ring is fair but produces symmetric lanes. Both are recorded as tuning knobs
+rather than solved. The arena is also still grey-box: this is layout, not art.
+
+**Amended by D-030:** the "this is layout, not art" half did not survive contact with the game's own
+premise and is superseded — the arena is art-directed now, out of primitives. The layout half of this entry
+still stands.
+
+---
+
+### D-029 — A modifier's pace belongs to the modifier, not to the arena's part count
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`CollapsingFloor` removed **one tile per 3.5s** up to 60% of the floor. That reads as a fixed pace and is
+not one: it is a property of how many tiles the arena happens to have. On the 16-tile floor it was tuned
+against, 60% takes 31.5s; on the new 64-tile floor the same rule would need **133 seconds**, so the round
+would end with the floor barely touched — a modifier that silently stops being itself on a bigger map.
+
+The batch size is now derived from the tile count against a time budget, so the promise ("most of the floor
+gone within a round") holds on any arena, and the 16-tile case is arithmetically unchanged at one tile per
+step:
+
+```
+batch = ceil(floor(tiles * 0.6) / floor(32 / 3.5))
+```
+
+| tiles | 60% limit | batch | limit reached in |
+| --- | --- | --- | --- |
+| 16 (the arena it was tuned on) | 9 | 1 | 31.5s (unchanged) |
+| 48 | 28 | 4 | 24.5s |
+| **64 (the new Foundry)** | **38** | **5** | **28.0s** |
+| 100 | 60 | 7 | 31.5s |
+
+The modifier also logs its own progress now, Studio-only via `Log.debug`, because its pace was previously
+invisible: tuning it meant sampling the arena from outside the game.
+
+**Verification.** Pacing exercised against a stub context across five tile counts (table above), and
+confirmed in a live round by sampling the built arena every 2s: `38/64` collapsed and flat thereafter —
+the 60% limit holding, not just the pace. The log line renders in a real session; in the stubbed pacing run
+its elapsed-seconds column reads `0.0s` because no wall time passes between simulated ticks — an artefact
+of the harness, not of the modifier.
+
+**Cost:** the modifier now has one more constant (a 32-second budget) that someone must keep in mind when
+the round length changes. It is stated in the file, next to the arithmetic that uses it.
+
+---
+
+### D-030 — The arena is art-directed out of primitives, not left grey-box
+
+**Status:** accepted · **Date:** 2026-09-21
+
+D-028 described the rebuilt arena as "layout, not art" and left the look to a map-side job. That was
+the wrong call for this game in particular. The pitch is that the arena **transforms in front of you**,
+which means the arena is on screen for the entire first impression and most of the round; a grey-box
+hall of concrete and two greys makes the transforming parts read as a bug rather than as a change.
+
+So the reference arena is looked after as a design object:
+
+* **The fiction is the brand.** A hall built out of forms — stacked paper courses over concrete, ribbed
+  and buttressed, colour-coded windows, a wall of filing banks, roof pipework, banners, a Clerk's box
+  watching the floor. The transforming parts are authored as **office partitions and a tiled floor**, so
+  when a vote moves them it reads as the institution closing in.
+* **Colour is information.** Lime is the vote, gold is the verdict, and the eight modifier categories
+  each own a hue. Every cover column, window bay, banner and lamp is one of them, so the colonnade is a
+  colour key for the modifier catalogue.
+* **Lighting and VFX are part of the build**, not defaults: dusk clock, haze, bloom, colour correction,
+  sun rays, coloured pendant lamps with point lights, and six `OnModifier`-gated particle systems.
+  `GameplayService` captures its baseline at round start, so the builder owns the look every modifier
+  departs from and returns to.
+* **Zero meshes.** All primitives, Roblox materials (`Slate`, `Granite`, `Concrete`, `Marble`,
+  `DiamondPlate`, `CorrodedMetal`, `CeramicTiles`, `Pavement`, `Fabric`, `WoodPlanks`), `SurfaceType`
+  studs, inlets and grooves, plus `Neon`. Nothing to upload, nothing to licence, and every dimension stays
+  editable by the system that has to move it.
+
+**Why not meshes:** the parts that transform must remain scaled and repositioned by `ArenaService`, and a
+mesh is a frozen shape. Decorating the *static* shell with generated meshes is a valid next step (see
+`docs/12-ART-PIPELINE.md`) and does not affect this decision.
+
+**Verification.** `ArenaValidator` passes on 438 parts, 8 spawns, 5 loot, 5 cameras, minimum crate
+clearance 9.0 against a declared 8. Extent 84 x 62.4 x 84. Palette, layout table, sightline counts and
+live collapse timings: `docs/13-ARENA-DESIGN.md`.
+
+**Cost:** 438 parts against 107 (a 4x increase, still a fifth of the contract's 2500 budget) and a much
+longer builder module. It is also an *opinion* about look, which the map team may overrule — the contract
+asks for geometry and tags, and nothing here is required by it.
+
+---
+
+### D-031 — An invisible part is a marker and must not block a ray
+
+**Status:** accepted · **Date:** 2026-09-21
+
+Combat and bots both reach their targets with `Workspace:Raycast`. Nothing in the codebase distinguished
+"a part you can see" from "a part that only exists to mark a position", so every invisible helper was an
+invisible wall. Two bugs, both found by probing the built arena rather than by reading it:
+
+1. **The arena's own emitter containers swallowed every shot.** Six atmosphere containers are 64-by-64
+   plates parked at combat height (embers at y = 1.5, frost at 2.5, sparks at 6, motes at 10, mist at 16,
+   rubble at 24). All six were raycast-hittable, so bullets stopped in mid-air and bots looked through a
+   solid plate. A probe reported `invisibleStillQueryable = 51` parts; it is now **0**.
+2. **Hidden cover still blocked line of sight.** `ArenaService.applyAnchorState` set `Transparency = 1`
+   and `CanCollide = false` for authored-hidden parts but left `CanQuery` alone — and the arena *starts*
+   with the whole colonnade hidden, so on round 1 every bot was aiming at cover nobody could see and every
+   shot stopped on it. `CanQuery` is now written by the anchor-state path in both directions, and restored
+   from the snapshot like `CanCollide`.
+
+The rule is now stated in both places it can be violated: `BuildFoundry`'s part helper applies
+`CanQuery = false, CanTouch = false` to anything that is both transparent and non-colliding, and
+`AGENTS.md` tells map contributors the same thing.
+
+**Verification.** The builder probe counts invisible parts that are still queryable: 51 → 0. The
+anchor-state half is covered by code inspection plus the snapshot/restore path; it has **not** been
+observed in a live round with cover revealed, because forcing `CoverCrates` in a playtest needs a vote
+that skips. That is an honest gap, and the next `CoverCrates` round should confirm it.
+
+**Cost:** `CanTouch = false` on markers means a touch-based hazard or trigger could not be built on an
+invisible part. Hazards here are volume checks (`CombatService` tests the character's position against the
+hazard box), so nothing existing is affected.
+
+---
+
+### D-032 — A hole in the floor must be a hole, and falling out of the arena must end you
+
+**Status:** accepted · **Date:** 2026-09-21
+
+The arena's plinth was three solid slabs under the tiles, so a collapsed tile was a two-stud step onto
+concrete rather than a hole: “Collapsing Floor” could remove 60% of the floor and change nothing that
+mattered. The plinth is now a **frame** with the interior open, and the grout substrate under the tiles
+is non-colliding, so a missing tile is a real fall.
+
+That change created a second problem the old design could not have. Below the arena sits the place's
+Baseplate — **512x20x512 at (0,-39,0), top face y = -29** — so a player who fell through a hole landed on
+it: alive, 29 studs below the play space, and never eliminated. `waitForRoundEnd` never saw them die, so
+the round could not be decided by elimination and the player could not get back. Nothing anywhere checked
+for it: there was no out-of-bounds rule in the codebase.
+
+`RoundService` now has one, `voidKill`: while a round is live, any living player whose root goes below
+`FloorY - 20` has their Humanoid killed, which routes through the ordinary death path (stats, kill credit,
+`PlayerDied`, spectator camera). The margin sits between the two real floors of this place — the Lava
+volume at y = -16 and the Baseplate at y = -29 — and is a constant at the top of the rule.
+
+**Verification.** Live, with the character's root pinned 21 studs below the floor so that no fall is in
+progress and fall damage cannot explain a death: health 100 → 0 within 0.25s, and the log line
+`Round: whatamihereforfh fell out of the arena (y -25.0, floor 0.0)`. Separately, the hole itself was
+verified in Edit mode with `RespectCanCollide = true`: casting down from a tile with that tile excluded
+finds nothing collidable until the Lava volume at y = -17.
+
+**Cost:** an arena whose floor is *meant* to be a pit would need this rule relaxed — the margin is a
+single constant, but the assumption that below the floor means death is now baked into the round. The
+wider cost is that the contract now has a requirement it did not state, so it has been added: see
+`docs/01-ARENA-CONTRACT.md`, “the underside must stay open”.
+
+### D-033 — The upper level is one circuit, not four islands
+
+The first two-level version had a gallery along the north and south walls and four corner balconies
+joined to them by two straights: you could take height, but only in two places, and the east and west
+walls had no second level at all. On a 128-stud floor that is a camping platform, not a route. The
+gallery now runs **all four walls** — six segments each, from x/z −47 to +47, butting into the corner
+balconies at both ends — so the upper level is a ring a player can run the whole way round. `Vertical`
+is an honest feature tag because of it.
+
+Three things had to move to make the ring work, and all three were invisible in the source:
+
+* **The stairs.** A flight centred on its balcony climbed through the gallery deck of the wall it lands
+  beside. Flights run in the *inboard* half of the balcony's width now (`BALCONY_SIZE −
+  GALLERY_DEPTH − 0.8`), against the wall, so the landing is clear.
+* **The pigeonholes.** The records counter's wall of boxes ran from y 5.6, and the west gallery deck
+  crosses that wall at y 7..8: the bottom row was built *through* a deck players walk on, a 0.70-stud
+  intersection. The stack now starts above the deck.
+* **The Clerk's box legs.** They ran from the floor to y 14 on the north wall, which is exactly where
+  the north gallery deck is. They start at the deck (y 8) now, so the box stands *on* the gallery —
+  which is also the only sensible way to reach it.
+
+**Cost:** the ring makes the perimeter a strong position — 7 studs of height, a rail on the arena
+side only, and no floor-level way to see it coming except the stairs. It is drop-off only under normal
+gravity, and LowGravity makes it jump-reachable both ways, so the modifier that decides this is a
+round vote rather than an arena constant.
+
+### D-034 — Prop placement is a rule, not a set of coordinates
+
+Every real bug in this arena has been the same bug in different clothes: a prop positioned by a stud
+count that stopped matching the geometry. Four desks inside a colonnade column. Four ballot stacks
+under cover pieces. Two mail carts inside filing banks. A stamp press inside a column. A filing bank
+inside a balcony leg. Three queue-barrier bases standing on crate pads. A notice board's back 0.4
+studs inside the wall it was mounted on. None of those broke a contract rule, and none were findable
+by reading the code — they were found by cloning the built model and asking the engine.
+
+`BuildFoundry` now keeps a table of world-space bounds for every visible part it creates, and props
+are placed through `settle` (slide along the prop's own lane until the footprint is clear) or
+`settle`-style candidate search. Wall furniture slides *along its wall*, so it stays flush; the
+authored position is always candidate zero, so a prop only moves when it has to, and every move is
+logged. Crate pads and spawn volumes are registered as keep-outs **before** the clutter is built, from
+the same ring constants, because a crate that spawns inside a prop is worse than a prop that moved.
+
+**Verification:** structure check clean; the guard is deterministic and runs on every rebuild. The
+one thing it cannot do is prove the *authored* composition survives — 17 props now go through it, and
+the probe reports any prop that could not find clear ground rather than placing it anyway.
+
+**Cost:** the guard is conservative — rotated parts register their axis-aligned box, so a rotated prop
+reserves slightly more floor than it occupies, and a prop can be pushed a few studs off the position a
+designer chose. Both are the right direction to be wrong in, and the log names every prop that moved.
+
+### D-035 — A cylinder's axis is its local X, and three props were built on their sides
+
+`Shape = Enum.PartType.Cylinder` puts the axis along the part's **local X**, not its Y. So a part with
+`Size = Vector3.new(3.4, 0.5, 0.5)` and no rotation is a 3.4-stud bar lying horizontally. Every queue
+barrier in the hall was built that way:
+
+* the "posts" were horizontal bars at chest height, 3.4 studs long
+* the bases were 2.4-stud discs standing on their rims, with **0.98 studs of the disc under the
+  floor** — which is what the probe was reporting as 44 separate floor intersections, and which the
+  previous fix had chased to 0.22 studs of lift rather than to the orientation
+* the "ropes" were 1.2 studs long between posts 7 studs apart, so 5.8 studs of every gap was nothing
+
+The same mistake had the water cooler's bottle lying on its side on top of the cooler. All of it is
+turned up now: `CFrame.Angles(0, 0, math.pi / 2)` stands a cylinder up, the rope is 7 studs long with
+no rotation when the queue runs along X, and the footplate is a 0.4-thick disc at y 0.2 with none of
+itself below the tiles.
+
+**Cost:** a cylinder sized as `(height, diameter, diameter)` reads as upright and is not — the
+orientation has to be explicit at every call site. Worth a helper if a fourth one appears.
+
+### D-036 — The probe must not report its own instruments
+
+The placement probe's first run reported 118 pairs and 14 "markers that still block rays". Both
+numbers were wrong, and both were wrong in the same direction: the probe was measuring itself.
+
+* **Markers.** The rule was "transparent **or** non-colliding", which made the grout substrate two
+  studs under the floor and four neon `VOTE` letters thirty-four studs up into "markers that still
+  block rays" — a false alarm about D-031, which is exactly the alarm that must never be false. A
+  marker is transparent **and** non-colliding. Visible non-colliding parts are now reported
+  separately, as information, because a sign that stops a bullet is legal and a wall you cannot see
+  is not.
+* **Sampling.** The sightline grid ran to `half − 2`, which is the *outer edge of the outer tiles* —
+  so the corner samples stood inside the partitions, the filing banks and the records counter, and
+  every one of their rays was blocked at zero range. The arena read as **74% blind at chest height
+  with cover hidden**, which would have sent someone hunting for geometry that is not there. Samples
+  are inset 8 studs and any grid point standing inside a prop is dropped and counted.
+* **The hole.** The downward cast started at `tile.Position + Size.Y`, which is above the tile's *top*
+  face, so the first thing the ray hit was the tile being asked about: `first collidable part is
+  Tile_1 at y = 0.0`. It starts below the tile now.
+
+**Lesson:** a probe is code, and the reference arena's probes have been wrong more often than the
+arena. Every number this file quotes is worth re-deriving before it is trusted, and a *false* finding
+costs more than a missing one because it looks like progress.
+
+### D-037 — Studio fills the lobby with bots
+
+`DevConfig.BotCount` was the only way to get CPU combatants, and `ServerStorage.DevConfig` is created
+by hand in Studio and does not survive a restart of the editor. So the last four Play sessions ran
+**one human and zero bots** — every round a 50–60s timeout with nothing in it — while the log said
+`0 bot(s)` and looked fine. A test harness that has to be remembered is a test harness that is not
+running.
+
+`BotService.devCount()` now decides the count: an explicit `BotCount` wins (including 0, for a solo
+round), and otherwise **Studio fills the lobby to 8** while a live server gets zero. The gate is
+`RunService:IsStudio()`, not the presence of a config folder, so there is still no way to turn this on
+in production. Bots were already full combatants for the round-end rule (`aliveCombatants` counts
+them), which is why a round with them can end by elimination.

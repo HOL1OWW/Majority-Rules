@@ -77,6 +77,7 @@ local function snapshot(part: BasePart)
 		Size = part.Size,
 		Transparency = part.Transparency,
 		CanCollide = part.CanCollide,
+		CanQuery = part.CanQuery,
 		Material = part.Material,
 		Physics = part.CustomPhysicalProperties,
 		AnchorState = part:GetAttribute(Tags.Attr.AnchorState),
@@ -88,6 +89,13 @@ local function applyAnchorState(part: BasePart)
 	if anchorState == "Hidden" then
 		part.Transparency = 1
 		part.CanCollide = false
+		-- CanQuery matters as much as CanCollide here. CombatService and BotService both reach
+		-- their targets with Workspace:Raycast, and a hidden part still blocks a ray. The arena
+		-- opens with the entire colonnade hidden, so without this every bot is blind on round 1
+		-- and every shot stops in mid-air on cover the player cannot see.
+		part.CanQuery = false
+	elseif anchorState == "Shown" then
+		part.CanQuery = true
 	end
 end
 
@@ -301,6 +309,7 @@ function ArenaService.reset()
 			part.CFrame = original.CFrame
 			part.Transparency = original.Transparency
 			part.CanCollide = original.CanCollide
+			part.CanQuery = original.CanQuery
 			part.Material = original.Material
 			if original.Physics then
 				part.CustomPhysicalProperties = original.Physics

@@ -85,6 +85,27 @@ Every part a modifier may move, scale or hide must be:
 | `CanMorph` | bool | Same. |
 | `AnchorState` | string | `Shown` or `Hidden`. Hidden parts load invisible and non-colliding. |
 
+### Invisible parts must not block rays
+
+Any part that is invisible and non-colliding is a **marker** and must be authored with
+`CanQuery = false` (and `CanTouch = false`) — spawns, loot points, vote cameras, the nameplate,
+emitter containers, hazard volumes. `CombatService` and `BotService` both aim with
+`Workspace:Raycast`, so an invisible part with `CanQuery = true` is an invisible wall: shots stop in
+mid-air and bots cannot see through it. Six 64-by-64 emitter plates at combat height did exactly
+that to the reference arena. `BuildFoundry`'s part helper applies both flags automatically to any
+part that is transparent and non-colliding; do it by hand in a hand-authored arena. See D-031.
+
+### The underside must stay open
+
+If the arena declares the `Tiles` feature, and therefore wants `Collapsing Floor`, **nothing
+collidable may sit under the floor inside the play area.** A slab plinth turns a collapsed tile into a
+two-stud step; the reference arena's plinth is a *frame* around the play area for exactly this reason,
+and the grout substrate under the tiles is non-colliding. A player who falls through a hole is killed
+by `RoundService` once they are 20 studs below `FloorY` (D-032), so a hole is a real fall — but only if
+the geometry lets them fall.
+
+---
+
 ### Group names modifiers already use
 
 | Group | Used by | Meaning |
@@ -116,7 +137,11 @@ catalogue stays honest.
 
 * Parts tagged **`MRLootPoint`**, invisible, non-colliding.
 * Attributes: `LootWeight` (relative chance), `ClearanceRadius` (how much open space a crate
-  needs, used by tooling), `Zone` (free-form label, e.g. `Ring`, `Upper`).
+  needs), `Zone` (free-form label, e.g. `Ring`, `Upper`).
+* **`ClearanceRadius` is enforced, not decorative.** `ArenaValidator` measures the crate
+  `LootService` actually builds (3×3×3, 2.5 studs above the point) against the real, rotated cover
+  boxes and **errors** when a crate would spawn inside cover, or closer to it than the radius it
+  declares. Declaring 8 and delivering 6.36 fails the build. Default when undeclared: 8.
 * 4–8 points is the sweet spot. More than 12 and the arena stops having contested space, which
   is where weapon crates get their meaning.
 
@@ -233,14 +258,25 @@ Copy this into your pull request.
 
 - [ ] Root tagged `MRArena`, all required attributes set honestly
 - [ ] `FeatureTags` list matches the geometry that actually exists
+- [ ] every invisible, non-colliding part has `CanQuery = false` (markers are not walls)
+- [ ] declaring `Tiles`: nothing collidable under the floor inside the play area
 - [ ] `Transforms/` groups present: `Floor`, `Wall`, `Cover`, `Tile_n`, `Lava` as applicable
 - [ ] Cover pieces authored `AnchorState = "Hidden"`
 - [ ] Spawns ≥ `MaxPlayers`, ≥8 studs apart, indexed from 1
-- [ ] 4–8 loot points, inside the arena, above the floor
+- [ ] 4–8 loot points, inside the arena, above the floor, clear of cover by `ClearanceRadius`
 - [ ] Hazards authored invisible, non-colliding, below the floor
 - [ ] ≥3 vote cameras with unique `Order`, composed as an actual shot list
 - [ ] Exactly one nameplate, facing the arena
 - [ ] Emitters tagged with sensible `OnModifier` lists
 - [ ] No scripts, no unanchored geometry, `PrimaryPart` set
-- [ ] `ArenaValidator` reports PASS
+- [ ] **No prop built inside another prop.** The validator cannot see this: a desk standing in a column,
+      a filing bank inside a balcony leg and a crate pad under a queue barrier all pass every rule above.
+      `src/server/Dev/ArenaProbe.lua` reports the pairs from a Play session, and `BuildFoundry` avoids
+      them by placing props through `settle` rather than at hand-solved coordinates (D-034). Generated
+      arenas get this for free; a hand-authored one needs the probe.
+- [ ] A `Cylinder` part's axis is its **local X**, so an upright post or bottle needs
+      `CFrame.Angles(0, 0, math.pi / 2)` — unrotated, a `(3.4, 0.5, 0.5)` "post" is a bar lying down and
+      a `(0.4, 2.4, 2.4)` "base" is a disc standing on its rim, with a stud of itself under the floor
+      (D-035). Same trap for `sign()`-style plates: check the axis you think you are sizing.
+- [ ] `ArenaValidator` reports PASS, and `ArenaProbe` has been read since the last geometry change
 - [ ] Saved as `assets/arenas/<ArenaId>.rbxmx` and committed

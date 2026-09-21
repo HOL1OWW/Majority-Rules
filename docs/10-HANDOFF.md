@@ -32,6 +32,16 @@ handed out pistols, because `CombatService.resetRound` never restored the defaul
 siblings (`LootService.reset`, `GameplayService.reset`) both restored. `src/server/Dev/LoadoutCheck.lua`
 fails loudly on it after every transform and now passes; D-027 has the before/after logs.
 
+**The reference arena was redesigned, against a gate that now actually measures things.** The contract's
+`ClearanceRadius` was documented as "used by tooling" and no tooling read it, so the first `Foundry` layout
+passed the validator while four of its eight **spawns** sat inside cover (players ejected the moment cover
+rises) and four of its six loot points had crates spawning inside cover — invisible, and takeable straight
+through it. Ten defects in total once the check existed. The arena is now a colonnade of eight cover pieces
+with a contested centre, 64 small tiles instead of 16 large ones, and walls tall enough that `LowGravity` is
+not a way out. `CollapsingFloor` was changed with it, because its pace turned out to be a property of the
+arena's tile count rather than the modifier's (D-029). Full reasoning, the measured sightline numbers, and the
+probes to re-run them are in **`docs/13-ARENA-DESIGN.md`**; decisions are D-028 and D-029.
+
 What has still **never** happened: two humans in one match, 8-player rounds, and mobile/console input.
 No modifier that depends on combat (`Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`) has been checked
 against a real fight — the bots make that check possible now.
@@ -42,7 +52,7 @@ against a real fight — the bots make that check possible now.
 
 | Thing | Location | State |
 | --- | --- | --- |
-| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 66 Luau modules, 11 docs. Still inside OneDrive; see "Moving" below |
+| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 66 Luau modules, 14 numbered docs. Still inside OneDrive; see "Moving" below |
 | **GitHub** | `https://github.com/HOL1OWW/Majority-Rules` (remote `origin`) | **in sync** — `origin/main` and local `main` are the same commit. The agent can push from this machine (the credential manager authenticates), so "publish" includes the push. |
 | **Studio place** | `The Vote`, placeId `72737093276287` | **Team Create**, so a second contributor works in the same place and needs no tooling. Contains the hand-built `Foundry` arena and all 64 synced scripts. |
 | **Stray copy 1** | `C:\Users\selab\Majority-Rules` | the DevForum guide's `rojo init` skeleton (`Hello.luau`). **No game code. Delete it.** |
@@ -123,17 +133,42 @@ that matters is repo → place → runtime, and only the last of those shows up 
 
 ## The arena, as it stands in the place
 
-`ServerStorage.Arenas.Foundry` — `Geometry` (6 parts), `Transforms` (3 folders), `Hazards` (1),
-`Spawns` (8), `LootPoints` (6), `VoteShowcase` (5), `VFX` (1), `Audio`, `Variants`.
+`ServerStorage.Arenas.Foundry` — a 128 x 128 hall (4x the floor of the first version): `Geometry` (the
+stepped frame plinth, the shell in stacked courses with 24 ribs and 24 lit window bays, a gold dais
+with its ballot X and brass ring, 4 corner balconies, a gallery circuit on all four walls, the Clerk's
+box standing on the north gallery, 15 filing banks, an archive of 4 rolling shelves, 5 voting booths,
+a switchback queue, 4 busts, roof pipework, 14 pendant lamps, 6 banners, 10 pressed stamps, notice
+boards, planters, turnstiles), `Transforms` (`Floor` **256 tiles of 7.5 studs**, `Walls` 4 partitions in
+slats, 20 dressed columns authored hidden), `Hazards` (1 lava volume), `Spawns` (8), `LootPoints` (11),
+`VoteShowcase` (6 cameras + nameplate), `VFX` (6 emitter containers, all `CanQuery = false`), `Audio`
+(empty by design), `Variants`.
 
-It survived a stray sync because `Arenas` is marked `"$ignoreUnknownInstances": true` in
+It passes `ArenaValidator` with **1352 parts, 8 spawns, 11 loot, 6 cameras, 369 transformables, 260
+groups, minimum crate clearance 9.9 studs against a declared 8, 0 errors, 0 warnings**. The layout, the
+look, every number and the probes behind them: `docs/13-ARENA-DESIGN.md`. Rebuild it any time with
+`BuildFoundry.build()` (from a **clone** of the module — `require` caches per session, see that doc);
+the build validates itself and logs the result.
+
+The place can be **one revision behind the source**, and that is worth knowing before trusting anything
+measured here: `BuildFoundry.Revision` is stamped onto the arena as `GeneratorRevision`, and `Bootstrap`
+rebuilds on a mismatch — but Rojo does not patch the place while Studio is in Play, so a Play started
+before an edit runs the *old* hall against the *new* source. The stamp is what makes that visible
+instead of silent.
+
+**This arena is the worked example in three places**, and they are worth reading before hand-authoring
+one: the layout table in `docs/13-ARENA-DESIGN.md`, the two rules a green validator does *not* check
+(markers must not block rays; the underside must stay open) in `docs/01-ARENA-CONTRACT.md`, and the
+conventions section of `AGENTS.md`.
+
+It survives a stray sync because `Arenas` is marked `"$ignoreUnknownInstances": true` in
 `default.project.json`. **Never remove that flag** — it is the only thing protecting hand-built
 geometry from Rojo.
 
-A versioned copy sits at `assets/arenas/Foundry.rbxm` (binary, 8.4 KB, still current). It is a
-backup, not a load path — re-export it after significant geometry changes. The leftovers from the
-stray sync (`ReplicatedStorage.Shared.Hello`, `ServerScriptService.Server`,
-`StarterPlayerScripts.Client`) were deleted from the place on 2026-09-20.
+A versioned copy sits at `assets/arenas/Foundry.rbxm` (binary, 8.4 KB). It is a backup, **not a load
+path**, and it is now **stale** — it predates this redesign, so treat it as history rather than as the
+arena. Re-export it after significant geometry changes, and prefer `.rbxmx` so diffs are readable. See
+`assets/arenas/README.md`. The leftovers from the stray sync (`ReplicatedStorage.Shared.Hello`,
+`ServerScriptService.Server`, `StarterPlayerScripts.Client`) were deleted from the place on 2026-09-20.
 
 ---
 
@@ -151,15 +186,33 @@ stray sync (`ReplicatedStorage.Shared.Hello`, `ServerScriptService.Server`,
 
 ## Immediate next steps, in order
 
-1. **Play a round against bots** (`DevConfig.BotCount = 3`, see `docs/11-BOTS.md`) and watch the
-modifiers that depend on combat: `Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`, `MeleeOnly`,
-`PistolsOnly`, `ShotgunsOnly`. This is now the cheapest way to exercise the damage path — no second
-person, no `Test → Players: 2`, and the Output window says what happened. Then do the two-human run
-(`Test → Players: 2`) for the client-side paths, which bots cannot cover.
+1. **Press Play.** As of D-037 Studio fills the lobby with bots on its own, so a Play is now a
+seven-opponent round with no setup: watch the combat-dependent modifiers (`Vampire`, `Fragile`,
+`Ricochet`, `InfiniteAmmo`, `MeleeOnly`, `PistolsOnly`, `ShotgunsOnly`) and read the gate and the
+placement probe in the Output window. `DevConfig.BotCount = 0` still gives a solo round, and
+`DevConfig.ForceModifiers` with `SkipVote` gives a chosen modifier without the ballot. See
+`docs/11-BOTS.md`. Bots target the nearest living combatant, so bots kill bots — the earlier caveat
+(seven shooters converging on one human, round over in seconds) no longer applies. Nothing beats a
+real human for feel: use `Test → Players: 2` for the client-side paths bots cannot cover.
+
+**The one thing to read first, because it is new:** the placement guard (D-034) moves props a few
+studs to keep them out of each other. 17 props go through it, and every move is logged — if the hall
+reads as *wrong* rather than *free of intersections*, that log says which props moved and the authored
+coordinates are one table in `BuildFoundry`.
 2. **Build the Clerk** — the mascot, per `docs/05-BRAND.md`. It is the face of the brand and the
    loudest thing missing from the pitch.
 3. **Arenas 2 and 3**, against `docs/01-ARENA-CONTRACT.md`. One arena is a demo; three is a game. The
-   brief for map contributors is `docs/08-MAP-AI-BRIEF.md`.
+   brief for map contributors is `docs/08-MAP-AI-BRIEF.md`, and `src/server/Dev/BuildFoundry.lua` is the
+   worked example to copy — it passes the validator and says why every number is what it is.
+4. **Judge the redesigned arena with real players.** Two open questions, both measured and deliberately
+   left to a playtest (`docs/13-ARENA-DESIGN.md`): the eight aligned fire lanes that survive cover, and
+   whether 5 crates for 8 players is the right pressure. The tuning knob for the first is the cover ring's
+   radius, not the piece size. Re-export `assets/arenas/Foundry.rbxmx` while you are in there.
+
+   Two things to look at specifically, because an agent cannot judge either: whether the **palette reads at
+   distance** (the colonnade is a colour key — one hue per modifier category — and if it reads as noise,
+   that is one table in `BuildFoundry`), and whether the **balconies are a strong position or a trap** now
+   that `LowGravity` makes their 6.5-stud deck jump-reachable.
 
 Standing item: **move the project out of OneDrive** (next section). Safe now — the code, the docs and
 the arena are all on GitHub.

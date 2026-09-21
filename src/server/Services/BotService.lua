@@ -8,10 +8,13 @@
 	Testing that by hand needs two humans, which is exactly what a developer pressing Play does not
 	have. These bots are that second body.
 
-	Safety: bots exist only when `ServerStorage.DevConfig` has `BotCount` > 0, and DevService ignores
-	every override outside Studio, so there is no way to turn this on in a live server by accident.
-	Promoting it to a real "fill the server" feature is a product decision, not a code change — the
-	only line that would move is the DevService lookup in RoundService.
+	Count: `ServerStorage.DevConfig.BotCount` decides it if that folder exists, including 0 for a solo
+	round. With no config folder, Studio fills the lobby to `FULL_LOBBY` and a live server gets none —
+	`RunService:IsStudio()` is the gate, not the presence of a folder. This is deliberate: the override
+	used to be the *only* way to get bots, and it lives in a folder that does not survive a restart of
+	the editor, so a Play button press silently produced a round with one human and nothing to measure.
+	Promoting this to a real "fill the server" feature is a product decision, not a code change — the
+	only line that would move is `devCount`.
 
 	Bots get no special cases in the rules:
 	  * the round spawns them and the round destroys them, like a player character
@@ -33,10 +36,29 @@ local Log = require(Shared.Util.Log)
 
 local ArenaService = require(script.Parent.ArenaService)
 local CombatService = require(script.Parent.CombatService)
+local DevService = require(script.Parent.DevService)
 local GameplayService = require(script.Parent.GameplayService)
 local MatchState = require(script.Parent.MatchState)
 
 local BotService = {}
+
+--! The arena's own MaxPlayers: a full match rather than a crowd.
+local FULL_LOBBY = 8
+
+--! How many CPU combatants this round should have.
+--!
+--! An explicit `BotCount` wins, including zero. Otherwise Studio fills up to a full lobby — every
+--! player who is not a bot is a body the round already has — and a live server gets none.
+function BotService.devCount(): number
+	if not RunService:IsStudio() then
+		return 0
+	end
+	local configured = DevService.get("BotCount", nil)
+	if type(configured) == "number" then
+		return math.clamp(math.floor(configured), 0, FULL_LOBBY)
+	end
+	return math.clamp(FULL_LOBBY - #Players:GetPlayers(), 0, FULL_LOBBY - 1)
+end
 
 -- Tuning. A bot should be a genuine threat and still a losable one: it fires slower than the weapon
 -- allows, aims with a fixed error that does not shrink with distance, and does not lead a target.
@@ -92,22 +114,41 @@ local function botProfile()
 	return nil
 end
 
-local function nearestPlayer(origin: Vector3): (Model?, Vector3?)
+--! The nearest living combatant — a player *or* another bot.
+--!
+--! Targeting only players made a dev round measure nothing: with one human and seven bots, all
+--! seven converge on the human and never fire at each other, so the match is decided by the human's
+--! first death. `RoundService.waitForRoundEnd` also ends a round the moment no player is alive, even
+--! with seven bots standing, so a "round length" measured that way is the human's survival time, not
+--! the arena's. Bots that fight each other are the only way a Studio round is eight players instead
+--! of one. In production there are no bots, so this is exactly the old behaviour.
+local function nearestCombatant(origin: Vector3, self: Model): (Model?, Vector3?)
 	local best: Model? = nil
 	local bestPosition: Vector3? = nil
 	local bestDistance = math.huge
 
-	for _, player in MatchState.alivePlayers() do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if character and root then
-			local distance = (root.Position - origin).Magnitude
-			if distance < bestDistance then
-				best = character
-				bestPosition = root.Position
-				bestDistance = distance
-			end
+	local function consider(character: Model?)
+		if not character or character == self then
+			return
 		end
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if not humanoid or not root or humanoid.Health <= 0 then
+			return
+		end
+		local distance = (root.Position - origin).Magnitude
+		if distance < bestDistance then
+			best = character
+			bestPosition = root.Position
+			bestDistance = distance
+		end
+	end
+
+	for _, player in MatchState.alivePlayers() do
+		consider(player.Character)
+	end
+	for model in bots do
+		consider(model)
 	end
 
 	return best, bestPosition
@@ -161,7 +202,7 @@ local function tickBot(model: Model, state)
 		return
 	end
 
-	local target, targetPosition = nearestPlayer(root.Position)
+	local target, targetPosition = nearestCombatant(root.Position, model)
 	if not target or not targetPosition then
 		return
 	end

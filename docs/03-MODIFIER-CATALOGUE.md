@@ -47,6 +47,10 @@ Legend: **T** = tier · **W** = draw weight · **Req** = required arena feature 
 | 3 | `MovingArena` | The whole arena is drifting. Compensate. | 8 | — | — | Drift |
 | 2 | `Gamble` | Nobody knows. The machine decides. Probably something awful. | — | — | — | Gamble (pseudo-card, not a real modifier) |
 
+`CollapsingFloor` removes a batch **derived from the arena's tile count** rather than one tile per step, so
+60% of the floor goes in roughly 30 seconds on any arena. On the 16-tile arena it was tuned against that is
+still one tile per 3.5s. See D-029.
+
 ---
 
 ## Next up (planned, not implemented)

@@ -31,7 +31,13 @@ local ArenaValidator = {}
 local PART_BUDGET = 2500
 local TRIANGLE_BUDGET = 250000
 local MIN_SPAWN_SPACING = 8
+local SPAWN_COVER_MARGIN = 3
+local PIVOT_TOLERANCE = 2 -- studs the PrimaryPart may sit off the floor's centre
 local MIN_VOTE_CAMERAS = 3
+local DEFAULT_CLEARANCE = 8 -- used when a loot point declares no ClearanceRadius
+local CRATE_SIZE = 3 -- LootService.buildCrate: a 3x3x3 Part
+local CRATE_SPAWN_HEIGHT = 2.5 -- spawned this far above its loot point
+local CRATE_HALF_DIAGONAL = (Vector3.new(CRATE_SIZE, CRATE_SIZE, CRATE_SIZE) / 2).Magnitude
 local VALID_ANCHOR_STATES = { Shown = true, Hidden = true }
 local VALID_HAZARDS = { Lava = true, Void = true, Trampoline = true, Conveyor = true }
 local VALID_SIZES = { Tiny = true, Small = true, Medium = true, Large = true, Huge = true }
@@ -44,6 +50,20 @@ local function descendantsOfClass(root: Instance, className: string)
 		end
 	end
 	return out
+end
+
+--! Distance from a point to the nearest surface of a part's box, honouring its rotation.
+--! Clearance claims have to be checked against the real shape: cover pieces are routinely
+--! rotated away from the axes, so an axis-aligned distance would be wrong in both directions.
+local function pointToBoxDistance(point: Vector3, part: BasePart): number
+	local localPoint = part.CFrame:PointToObjectSpace(point)
+	local half = part.Size / 2
+	local nearest = Vector3.new(
+		math.clamp(localPoint.X, -half.X, half.X),
+		math.clamp(localPoint.Y, -half.Y, half.Y),
+		math.clamp(localPoint.Z, -half.Z, half.Z)
+	)
+	return (localPoint - nearest).Magnitude
 end
 
 function ArenaValidator.validate(arena: Instance)
@@ -115,12 +135,19 @@ function ArenaValidator.validate(arena: Instance)
 	end
 
 	local groupNames = {}
+	local groupParts = {}
 	for _, part in transformables do
 		local groups = Tags.groupsOf(part)
 		local count = 0
 		for name in groups do
 			count += 1
 			groupNames[name] = (groupNames[name] or 0) + 1
+			local bucket = groupParts[name]
+			if not bucket then
+				bucket = {}
+				groupParts[name] = bucket
+			end
+			table.insert(bucket, part)
 		end
 		if count == 0 then
 			error("transformable part " .. part.Name .. " declares no TransformGroup")
@@ -173,19 +200,82 @@ function ArenaValidator.validate(arena: Instance)
 		end
 	end
 
-	-- ---------------------------------------------------------------- loot points
-	local lootPoints = 0
-	for _, instance in CollectionService:GetTagged(Tags.LootPoint) do
-		if instance:IsDescendantOf(arena) and instance:IsA("BasePart") then
-			lootPoints += 1
+	-- A spawn inside a cover box is nastier than it looks: cover is authored hidden and switched on
+	-- mid-round, so the player is standing in solid geometry the moment it rises and gets ejected
+	-- by the solver. Not fatal, but it is a bug report every time.
+	for _, spawn in spawns do
+		for _, cover in (groupParts.Cover or {}) do
+			local distance = pointToBoxDistance(spawn.Position, cover)
+			if distance == 0 then
+				error(string.format(
+					"spawn %s is inside cover %s: the player is ejected when cover rises",
+					spawn.Name,
+					cover.Name
+				))
+			elseif distance < SPAWN_COVER_MARGIN then
+				warn(string.format(
+					"spawn %s is only %.1f studs from cover %s",
+					spawn.Name,
+					distance,
+					cover.Name
+				))
+			end
 		end
 	end
+
+	-- ---------------------------------------------------------------- loot points
+	local lootParts = {}
+	for _, instance in CollectionService:GetTagged(Tags.LootPoint) do
+		if instance:IsDescendantOf(arena) and instance:IsA("BasePart") then
+			table.insert(lootParts, instance)
+		end
+	end
+	local lootPoints = #lootParts
 	if lootPoints == 0 then
 		error("no loot points: weapon crates would have nowhere to spawn")
 	end
 	if lootPoints > 12 then
 		warn(lootPoints .. " loot points: consider fewer, more contested points")
 	end
+
+	-- ClearanceRadius is a claim, and the contract says tooling checks it. It never did, and the
+	-- reference arena shipped four loot points two studs from where cover rises — those crates
+	-- spawn *inside* a cover piece: invisible, and takeable straight through it, because the
+	-- ProximityPrompt sets RequiresLineOfSight = false. Measure the crate LootService actually
+	-- builds (3x3x3, 2.5 studs above the point), not the invisible marker.
+	local coverParts = groupParts.Cover or {}
+	if #coverParts > 0 then
+		info.minLootClearance = math.huge
+		for _, point in lootParts do
+			local declared = point:GetAttribute(Tags.Attr.ClearanceRadius) or DEFAULT_CLEARANCE
+			local crateOrigin = point.Position + Vector3.new(0, CRATE_SPAWN_HEIGHT, 0)
+			local nearest, nearestName = math.huge, "none"
+			for _, cover in coverParts do
+				local distance = pointToBoxDistance(crateOrigin, cover)
+				if distance < nearest then
+					nearest, nearestName = distance, cover.Name
+				end
+			end
+			info.minLootClearance = math.min(info.minLootClearance, nearest)
+			if nearest < CRATE_HALF_DIAGONAL then
+				error(string.format(
+					"loot point %s is %.2f studs from cover %s: its crate would spawn inside the cover",
+					point.Name,
+					nearest,
+					nearestName
+				))
+			elseif nearest < declared then
+				error(string.format(
+					"loot point %s declares ClearanceRadius %s but is only %.2f studs from cover %s",
+					point.Name,
+					tostring(declared),
+					nearest,
+					nearestName
+				))
+			end
+		end
+	end
+	info.lootParts = lootParts
 
 	-- ---------------------------------------------------------------- hazards
 	for _, instance in CollectionService:GetTagged(Tags.Hazard) do
@@ -260,6 +350,34 @@ function ArenaValidator.validate(arena: Instance)
 
 	if arena.PrimaryPart == nil then
 		warn("no PrimaryPart set: the drift modifier will move the bounding-box centre instead")
+	end
+
+	-- ArenaService.Center() is the model pivot and every group scale happens about it, so a pivot
+	-- off the floor's centre drags the whole arena sideways as it shrinks — and ShrinkingArena
+	-- accumulates, so the error grows over a round. Compare against the floor the transforms
+	-- actually move, not the model bounding box: vote cameras and the nameplate sit outside the
+	-- arena by design and would skew that.
+	local floorParts = groupParts.Floor or {}
+	if arena.PrimaryPart and #floorParts > 0 then
+		local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+		for _, part in floorParts do
+			local half = part.Size / 2
+			minX = math.min(minX, part.Position.X - half.X)
+			maxX = math.max(maxX, part.Position.X + half.X)
+			minZ = math.min(minZ, part.Position.Z - half.Z)
+			maxZ = math.max(maxZ, part.Position.Z + half.Z)
+		end
+		local offset = Vector2.new(
+			arena.PrimaryPart.Position.X - (minX + maxX) / 2,
+			arena.PrimaryPart.Position.Z - (minZ + maxZ) / 2
+		)
+		info.floorCentreOffset = offset.Magnitude
+		if offset.Magnitude > PIVOT_TOLERANCE then
+			warn(string.format(
+				"PrimaryPart sits %.1f studs off the floor centre: every group scale will drag the arena sideways",
+				offset.Magnitude
+			))
+		end
 	end
 
 	-- 6 x 6 = 60 x 60 studs is a good Medium arena; flag anything extreme so the ballot filters

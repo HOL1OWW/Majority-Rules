@@ -75,6 +75,23 @@ needs a new capability — not that the modifier should reach into `Workspace`.
 4. Run `ArenaValidator` and get a clean report.
 5. Save as `assets/arenas/<ArenaId>.rbxmx` and commit.
 
+Two rules that a clean validator run does **not** check, both of which shipped as real bugs in the
+reference arena (`docs/13-ARENA-DESIGN.md`, D-031 and D-032):
+
+- **A marker is not a wall.** Every invisible, non-colliding part — spawn pad, loot point, vote camera,
+  emitter container, hazard volume — needs `CanQuery = false` (and `CanTouch = false`). Both combat and
+  the bots aim with `Workspace:Raycast`, so an invisible part left queryable silently eats bullets and
+  blinds bots. Six 64-by-64 emitter plates at combat height did exactly that: a wall you cannot see.
+- **The underside stays open.** If the arena declares `Tiles`, nothing collidable may sit under the
+  floor inside the play area, or a collapsed tile is a step rather than a hole. A plinth belongs outside
+  the play area as a frame.
+
+A third one is about the *transforming* parts rather than the arena: any group a modifier scales must
+not intersect geometry that stays put. The reference arena's corner staircases originally ran diagonally
+in from the balconies, straight through the colonnade — invisible in source, twelve overlaps in the
+model, and the columns would have risen through the steps. Verify contacts with `workspace:GetPartsInPart`
+on a clone, and treat a non-empty result as a bug.
+
 ---
 
 ## Is the engine running the code you think it is?
@@ -191,6 +208,22 @@ bring down the round it describes** (report loudly, and make throwing opt-in via
 `Util/Tween.lua`'s reporter had to learn), and **a check that can fail to load silently is worse than no
 check** — say so in the log when it cannot run, because a `require` inside a `pcall` with the wrong path
 produces a perfectly clean transcript of nothing happening.
+
+---
+
+## Reading the arena you just built
+
+The look of an arena is a design decision, not a leftover — `docs/13-ARENA-DESIGN.md` is the worked
+example of how the reference arena is composed (fiction, palette with meaning, lighting, and why it is all
+primitives). Two habits that keep it that way:
+
+- **Probe the model, not the source.** Every bug in the reference arena's geometry was found by casting
+  rays or running `GetPartsInPart` against the built clone in the place: 12 stair/colonnade overlaps, 12
+  furniture/wall-slats overlaps, 51 raycast-blocking markers, 24 buttresses half-buried under the plinth.
+  None of them are visible by reading `BuildFoundry.lua`.
+- **Write the numbers down next to the design.** "Cover is 6 studs, a character is 5.00" is a design
+  decision; "cover looks tall enough" is not, and the generated attempt that came back at 4.78 would have
+  hidden nobody.
 
 ---
 

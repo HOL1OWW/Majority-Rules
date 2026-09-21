@@ -134,6 +134,28 @@ local function waitForVotes(seconds: number)
 	end
 end
 
+--! The floor can be taken out from under you: Collapsing Floor hides tiles, and the arena's plinth
+--! is a frame rather than a slab precisely so a missing tile is a real hole. Without this rule the
+--! player who falls through one lands on the place's Baseplate 29 studs below the arena, alive and out
+--! of play, and the round can then never be decided by elimination. Killing them routes through the
+--! ordinary death path, so stats, kill credit, the death signal and the spectator camera all behave.
+--!
+--! The margin is deliberately between the two floors: the lava volume sits at y = -16 and the
+--! Baseplate's top face at y = -29, so anything below -20 is out of the world, not merely falling.
+local VOID_MARGIN = 20
+local function voidKill()
+	local floorY = ArenaService.FloorY()
+	for _, player in MatchState.alivePlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if root and humanoid and humanoid.Health > 0 and root.Position.Y < floorY - VOID_MARGIN then
+			Log.info("Round: %s fell out of the arena (y %.1f, floor %.1f)", player.Name, root.Position.Y, floorY)
+			humanoid.Health = 0
+		end
+	end
+end
+
 --! A round can only be decided by elimination if it *began* with someone to eliminate. `contested`
 --! is measured once, as the round goes live: with a single player the survivor check below is true
 --! on its very first tick, so a solo round returned `elimination` about a quarter of a second in.
@@ -142,6 +164,7 @@ end
 local function waitForRoundEnd(length: number, contested: boolean)
 	local deadline = os.clock() + length
 	while os.clock() < deadline do
+		voidKill()
 		-- Two ways a round is decided early: at most one combatant is left, or nobody who can win is
 		-- left. The second clause matters once bots are in play — with the humans dead and a bot still
 		-- standing, the first one is not true and the only thing left to watch is a spectator screen.
@@ -502,12 +525,12 @@ local function runRound(roundNumber: number, rng: Random)
 	PlayerService.freezeAll(false)
 	applyToEveryone()
 
-	-- CPU combatants, after the arena has finished moving so they spawn in the new geometry. Count
-	-- comes from DevConfig and DevService ignores it outside Studio, so this is a test aid, not a
-	-- game feature — see BotService's header for what that would take to promote.
-	local botCount = DevService.get("BotCount", 0)
-	if type(botCount) == "number" and botCount > 0 then
-		BotService.spawnAll(math.floor(botCount))
+	-- CPU combatants, after the arena has finished moving so they spawn in the new geometry. In Studio
+	-- this fills the lobby unless `DevConfig.BotCount` says otherwise; a live server always gets zero.
+	-- See BotService.devCount.
+	local botCount = BotService.devCount()
+	if botCount > 0 then
+		BotService.spawnAll(botCount)
 	end
 
 	-- Post-transform smoke check (Studio only): does every player hold what *this* round voted for?
