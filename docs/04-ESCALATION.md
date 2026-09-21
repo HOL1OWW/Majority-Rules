@@ -63,9 +63,23 @@ Format selection: `Escalation.formatForPlayerCount(n)` — under 4 players is Sk
 | Reveal | 2.5s | Winner announced, before the transform |
 | Transform | ≤4.5s hard cap | Steps run in phases; the cap protects the round |
 | Countdown | 3s | 3 · 2 · 1 · FIGHT |
-| Live | 50–75s by round | Ends early when ≤1 player remains |
+| Live | 50–75s by round | Ends early when ≤1 player remains, but only in a round that began with more |
 | Round end | 8s | Results screen |
 | Match end | 15s | Standings, then a new match |
+
+### When a round is allowed to end early
+
+`Combat.MinAliveToContinue` is 1, so a round ends the moment ≤1 player is left — **provided the
+round began with more than that**. The "began with" half is not a formality: with a single player
+alive, the survivor check is true on the round's first tick, so a solo round returned as an
+`elimination` about a quarter of a second in. The Full format picks Skirmish below 4 players and a
+new experience serves 1–3 player servers, which means **that was the first-run experience**: a lone
+player watched the arena transform, saw a results screen, and never played a round at all.
+
+A solo round now runs its full length and is won on the `timeout` rule (healthiest survivor), which
+is what `RoundService` already awarded at the deadline. Verification, in Studio only: the server
+logs `Round N ended: <reason> after <t>s, <n> alive at the start` at debug level, so an early exit
+and a full-length round are distinguishable without guessing.
 
 ## Tie-breaks
 

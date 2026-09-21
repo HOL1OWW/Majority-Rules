@@ -12,6 +12,9 @@
 		TotalRounds      number  shorten a match to N rounds
 		ArenaId          string  force a specific arena
 		StartingRound    number  start the match at round N (to test high-tier chaos fast)
+		BotCount         number  spawn N CPU combatants each round (see BotService) — the only way to
+		                         test elimination, kill credit and a contested round without a second
+		                         human, since the engine cannot create a Player from a script
 
 	Outside Studio every override is ignored, so this can never affect a live server.
 ]]

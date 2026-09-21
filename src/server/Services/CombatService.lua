@@ -136,7 +136,9 @@ local function protectionActive(player: Player?): boolean
 	return false
 end
 
-local function applyDamage(attacker: Player, victimHumanoid: Humanoid, amount: number)
+--! `attacker` is nil when a bot fired: bots have no Player, so they can neither steal kill credit
+--! nor heal from lifesteal. Everything else is identical to a player's shot.
+local function applyDamage(attacker: Player?, victimHumanoid: Humanoid, amount: number)
 	if not victimHumanoid.Parent or victimHumanoid.Health <= 0 then
 		return
 	end
@@ -149,10 +151,14 @@ local function applyDamage(attacker: Player, victimHumanoid: Humanoid, amount: n
 		return -- already eliminated this round
 	end
 
-	lastDamageBy[victimHumanoid] = { Player = attacker, At = os.clock() }
+	-- Only a player's damage claims the kill. A bot's hit leaves attribution alone, so a player who
+	-- softened the target first keeps the credit.
+	if attacker then
+		lastDamageBy[victimHumanoid] = { Player = attacker, At = os.clock() }
+	end
 
 	local lifesteal = MatchState.getFlag("Lifesteal", 0)
-	if lifesteal and lifesteal > 0 and attacker.Character then
+	if attacker and lifesteal and lifesteal > 0 and attacker.Character then
 		local healer = attacker.Character:FindFirstChildOfClass("Humanoid")
 		if healer and healer.Health > 0 then
 			healer.Health = math.min(healer.MaxHealth, healer.Health + amount * lifesteal)
@@ -177,13 +183,35 @@ local function traceDirections(origin: Vector3, direction: Vector3, profile, rng
 	return out
 end
 
+--! The Humanoid a raycast hit belongs to. A character's parts are SIBLINGS of its Humanoid — the
+--! Humanoid is a child of the character Model — so `hit:FindFirstAncestorOfClass("Humanoid")` is
+--! always nil, for a player and for a bot alike. Verified in the engine against a live character:
+--!
+--!     hit = Workspace.<player>.HumanoidRootPart
+--!     FindFirstAncestorOfClass("Humanoid") = nil      <- what this used to ask
+--!     FindFirstAncestorOfClass("Model")    = <character>, whose Humanoid child exists
+--!
+--! So walking up until a node *has* a Humanoid child is what resolves a victim. Every shot this
+--! service has ever resolved returned nil, which is why damage has never been observed in play.
+local function humanoidOfHit(instance: Instance): Humanoid?
+	local node: Instance? = instance
+	while node do
+		local humanoid = node:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			return humanoid
+		end
+		node = node.Parent
+	end
+	return nil
+end
+
 local function findVictim(origin: Vector3, direction: Vector3, range: number, params: RaycastParams)
 	local result = Workspace:Raycast(origin, direction * range, params)
 	if not result then
 		return nil
 	end
 
-	local humanoid = result.Instance:FindFirstAncestorOfClass("Humanoid")
+	local humanoid = humanoidOfHit(result.Instance)
 	if humanoid then
 		return humanoid
 	end
@@ -192,7 +220,7 @@ local function findVictim(origin: Vector3, direction: Vector3, range: number, pa
 		local reflected = direction - 2 * direction:Dot(result.Normal) * result.Normal
 		local second = Workspace:Raycast(result.Position + reflected * 0.1, reflected * range, params)
 		if second then
-			return second.Instance:FindFirstAncestorOfClass("Humanoid")
+			return humanoidOfHit(second.Instance)
 		end
 	end
 
@@ -207,6 +235,47 @@ local function reloadTool(tool: Tool, profile)
 			tool:SetAttribute("Ammo", profile.Ammo)
 		end
 	end)
+end
+
+--! Resolves one shot — spread, pellets, ricochet, damage — and applies it. Shared by player fire
+--! and bot fire so a bot can never do anything a player's weapon could not: same range, same
+--! pellet count, same ricochet flag, same protection and elimination rules.
+--! Returns how many pellets connected, which is all the tracer needs to know.
+local function resolveShot(
+	shooter: Player?,
+	shooterCharacter: Model,
+	origin: Vector3,
+	direction: Vector3,
+	profile
+): number
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { shooterCharacter }
+	params.IgnoreWater = true
+
+	local ownHumanoid = shooterCharacter:FindFirstChildOfClass("Humanoid")
+	local rng = Random.new(os.clock() * 100000 % 2147483647)
+	local hits = {}
+	local victimCount = 0
+
+	for _, pelletDirection in traceDirections(origin, direction, profile, rng) do
+		local humanoid = findVictim(origin, pelletDirection, profile.Range, params)
+		if humanoid and humanoid.Parent and humanoid ~= ownHumanoid then
+			local victimPlayer = Players:GetPlayerFromCharacter(humanoid.Parent)
+			-- A player's shot may hit anything humanoid. A bot's shot only counts against players, so
+			-- two bots do not grind each other down while the human is the point of the test.
+			if shooter ~= nil or victimPlayer ~= nil then
+				hits[humanoid] = (hits[humanoid] or 0) + profile.Damage
+				victimCount += 1
+			end
+		end
+	end
+
+	for humanoid, damage in hits do
+		applyDamage(shooter, humanoid, damage)
+	end
+
+	return victimCount
 end
 
 local function handleFire(player: Player, tool: Instance, origin: Vector3, direction: Vector3)
@@ -257,37 +326,61 @@ local function handleFire(player: Player, tool: Instance, origin: Vector3, direc
 
 	lastFireAt[player] = now
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character }
-	params.IgnoreWater = true
-
-	local rng = Random.new(os.clock() * 100000 % 2147483647)
-	local hits = {}
-	local victimCount = 0
-
-	for _, pelletDirection in traceDirections(origin, direction, profile, rng) do
-		local humanoid = findVictim(origin, pelletDirection, profile.Range, params)
-		if humanoid and humanoid.Parent then
-			local victimPlayer = Players:GetPlayerFromCharacter(humanoid.Parent)
-			if victimPlayer ~= player then
-				hits[humanoid] = (hits[humanoid] or 0) + profile.Damage
-				victimCount += 1
-			end
-		end
-	end
-
-	for humanoid, damage in hits do
-		applyDamage(player, humanoid, damage)
-	end
+	local victimCount = resolveShot(player, character, origin, direction, profile)
 
 	-- Replication for tracers and hit confirmation. Purely cosmetic on the client.
 	Net.broadcast("WeaponTracer", player, origin, origin + direction * profile.Range, victimCount > 0)
 end
 
+--! Fires a bot's weapon. Bots carry no Tool and no Player: BotService supplies the aim and the
+--! weapon profile (from the round's loadout, so "shotguns only" applies to bots too), and this is
+--! the same `resolveShot` a player's trigger pull goes through.
+function CombatService.botFire(character: Model, origin: Vector3, direction: Vector3, profile): boolean
+	if MatchState.State ~= "Live" then
+		return false
+	end
+	if not character.Parent or direction.Magnitude < 0.001 then
+		return false
+	end
+
+	local victimCount = resolveShot(nil, character, origin, direction.Unit, profile)
+
+	-- The client ignores the shooter argument and draws from the two positions, so a nil shooter is
+	-- a tracer the player can see and dodge — which is the whole point of a bot that shoots back.
+	Net.broadcast("WeaponTracer", nil, origin, origin + direction.Unit * profile.Range, victimCount > 0)
+	return true
+end
+
 -- ---------------------------------------------------------------------------------------
 -- Death
 -- ---------------------------------------------------------------------------------------
+
+--! Points, stats and the on-screen notice for whoever last damaged this Humanoid. Shared by player
+--! deaths and bot deaths, so dropping a bot is worth exactly what dropping a player is worth.
+--! `victimPlayer` is nil for a bot victim.
+function CombatService.creditKill(victimPlayer: Player?, victimHumanoid: Humanoid): Player?
+	local attribution = lastDamageBy[victimHumanoid]
+	lastDamageBy[victimHumanoid] = nil
+	if not attribution then
+		return nil
+	end
+
+	local killer = attribution.Player
+	if not killer or killer == victimPlayer then
+		return nil
+	end
+	if os.clock() - attribution.At >= KILL_CREDIT_WINDOW then
+		return nil
+	end
+
+	MatchState.Points[killer] = (MatchState.Points[killer] or 0) + Combat.KillPoints
+	local killerStats = MatchState.Stats[killer]
+	if killerStats then
+		killerStats.Kills += 1
+	end
+	Net.trySend(killer, Net.Events.Notify, { Text = "KILL", Kind = "kill" })
+	return killer
+end
 
 local function onHumanoidDied(player: Player, humanoid: Humanoid)
 	if MatchState.Alive[player] == false then
@@ -303,20 +396,25 @@ local function onHumanoidDied(player: Player, humanoid: Humanoid)
 		stats.Deaths += 1
 	end
 
-	local attribution = lastDamageBy[humanoid]
-	local killer: Player? = nil
-	if attribution and attribution.Player ~= player and (os.clock() - attribution.At) < KILL_CREDIT_WINDOW then
-		killer = attribution.Player
-		MatchState.Points[killer] = (MatchState.Points[killer] or 0) + Combat.KillPoints
-		local killerStats = MatchState.Stats[killer]
-		if killerStats then
-			killerStats.Kills += 1
-		end
-		Net.trySend(killer, Net.Events.Notify, { Text = "KILL", Kind = "kill" })
+	local killer = CombatService.creditKill(player, humanoid)
+	MatchState.Signals.PlayerDied:Fire(player, killer)
+end
+
+--! A bot has no Player and no CharacterAdded signal, so nothing binds its Humanoid until BotService
+--! asks. `onDied` is how BotService retires a bot without this service needing to know what a bot is.
+function CombatService.bindBot(character: Model, onDied: (() -> ())?)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		Log.warn("bindBot: %s has no Humanoid to bind", character.Name)
+		return
 	end
 
-	lastDamageBy[humanoid] = nil
-	MatchState.Signals.PlayerDied:Fire(player, killer)
+	humanoid.Died:Connect(function()
+		CombatService.creditKill(nil, humanoid)
+		if onDied then
+			onDied()
+		end
+	end)
 end
 
 function CombatService.bindCharacter(player: Player, character: Model)
@@ -402,6 +500,18 @@ end
 -- ---------------------------------------------------------------------------------------
 
 function CombatService.start()
+	-- Bind every player's Humanoid. Nothing called `bindPlayer`, so `Humanoid.Died` was never
+	-- connected: a death set no `Alive` flag, no `Eliminated` flag, awarded no kill, and could not end
+	-- a round early. That stayed invisible for as long as no shot could resolve a victim (see
+	-- `humanoidOfHit`), and it is the first thing a live fight exposes — a player shot to zero health
+	-- and the round ran on with three bots firing at the body.
+	Players.PlayerAdded:Connect(function(player)
+		CombatService.bindPlayer(player)
+	end)
+	for _, player in Players:GetPlayers() do
+		CombatService.bindPlayer(player)
+	end
+
 	Net.event(Net.Events.WeaponFire).OnServerEvent:Connect(function(player, tool, origin, direction)
 		if typeof(tool) ~= "Instance" or typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
 			return

@@ -4,7 +4,7 @@
 future-you in three weeks. It is the session's memory written to disk. Then read
 `docs/00-VISION.md` (what the game is) and `docs/09-SETUP.md` (how to run it).
 
-Last updated: **2026-09-20**.
+Last updated: **2026-09-21**.
 
 ---
 
@@ -16,10 +16,19 @@ arena. **It runs.** As of 2026-09-20 it boots, loads 23 modifiers, loads `Foundr
 transforms the arena, resolves conflicts and scores — two consecutive matches, zero errors, zero
 warnings, with the vote panel visible on screen. Ten faults found on the way were fixed and committed.
 
-What has **never** happened: anything was shot at anything. Hitscan, damage, elimination, points, and
-every modifier that depends on them (`Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`) are still
-unexercised, along with 8-player rounds and mobile/console input. A two-player local playtest is the
-next real milestone.
+As of 2026-09-21 **combat has fired for the first time**, and getting there took three bugs that had
+each been invisible precisely because nothing could die (see `DECISIONS.md` D-020, D-023, D-024): the
+scheduler collected no tweens, no shot could resolve a victim, and no player's `Humanoid.Died` was
+ever connected. With those fixed, a 3-bot session ran three rounds that **all ended by elimination**,
+with kill credit and points landing on the HUD.
+
+**Bots exist now** — `BotService`, Studio-only behind `DevConfig.BotCount`, so a round can be played
+and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second
+player" as the way to exercise combat.
+
+What has still **never** happened: two humans in one match, 8-player rounds, and mobile/console input.
+No modifier that depends on combat (`Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`) has been checked
+against a real fight — the bots make that check possible now.
 
 ---
 
@@ -27,7 +36,7 @@ next real milestone.
 
 | Thing | Location | State |
 | --- | --- | --- |
-| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 64 Luau modules, 10 docs. Still inside OneDrive; see "Moving" below |
+| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 65 Luau modules, 11 docs. Still inside OneDrive; see "Moving" below |
 | **GitHub** | `https://github.com/HOL1OWW/Majority-Rules` (remote `origin`) | **in sync** — `origin/main` and local `main` are the same commit. The agent can push from this machine (the credential manager authenticates), so "publish" includes the push. |
 | **Studio place** | `The Vote`, placeId `72737093276287` | **Team Create**, so a second contributor works in the same place and needs no tooling. Contains the hand-built `Foundry` arena and all 64 synced scripts. |
 | **Stray copy 1** | `C:\Users\selab\Majority-Rules` | the DevForum guide's `rojo init` skeleton (`Hello.luau`). **No game code. Delete it.** |
@@ -136,11 +145,11 @@ stray sync (`ReplicatedStorage.Shared.Hello`, `ServerScriptService.Server`,
 
 ## Immediate next steps, in order
 
-1. **Two-player playtest — `Test → Players: 2`.** This is the untouched half of the game: nothing has
-ever been shot at anything. Watch hitscan registration, damage, elimination, points, and the modifiers
-that depend on combat (`Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`, `MeleesOnly`, `PistolsOnly`,
-`ShotgunsOnly`). Expect client-side and combat errors; that is the next round of work and it is the
-interesting kind. Report what the Output window says rather than what you see.
+1. **Play a round against bots** (`DevConfig.BotCount = 3`, see `docs/11-BOTS.md`) and watch the
+modifiers that depend on combat: `Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`, `MeleeOnly`,
+`PistolsOnly`, `ShotgunsOnly`. This is now the cheapest way to exercise the damage path — no second
+person, no `Test → Players: 2`, and the Output window says what happened. Then do the two-human run
+(`Test → Players: 2`) for the client-side paths, which bots cannot cover.
 2. **Build the Clerk** — the mascot, per `docs/05-BRAND.md`. It is the face of the brand and the
    loudest thing missing from the pitch.
 3. **Arenas 2 and 3**, against `docs/01-ARENA-CONTRACT.md`. One arena is a demo; three is a game. The

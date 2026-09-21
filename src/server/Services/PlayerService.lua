@@ -53,11 +53,26 @@ function PlayerService.assignSpawnPoint(player: Player): BasePart?
 	return spawns[index]
 end
 
+--! A non-nil `player.Character` is not the same thing as a spawned player. `despawn` destroys the
+--! character model, and the engine leaves that (now empty, unparented, Humanoid-less) model attached
+--! to the property, so `if player.Character then return true end` answered "already spawned" —
+--! permanently, from the first despawn onwards. The player then kept a husk: no Humanoid, no loadout,
+--! no spawn point, and `MatchState.Alive` never set, which is why rounds after the first reported
+--! *zero* players alive. Round 1 looked healthy only because nothing had been despawned yet, and a
+--! one-player test is exactly where that hides.
+local function hasPlayableCharacter(player: Player): boolean
+	local character = player.Character
+	if not character then
+		return false
+	end
+	return character.Parent ~= nil and character:FindFirstChildOfClass("Humanoid") ~= nil
+end
+
 function PlayerService.spawn(player: Player): boolean
 	if not MatchState.Active or MatchState.Eliminated[player] then
 		return false
 	end
-	if player.Character then
+	if hasPlayableCharacter(player) then
 		return true
 	end
 
@@ -99,6 +114,9 @@ function PlayerService.despawn(player: Player)
 	if character then
 		character:Destroy()
 	end
+	-- Drop the reference with the instance. Leaving it pointing at the destroyed husk is what made
+	-- `spawn` believe the player was still spawned (see `hasPlayableCharacter`).
+	player.Character = nil
 	MatchState.Alive[player] = false
 end
 

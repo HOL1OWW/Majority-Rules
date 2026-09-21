@@ -76,18 +76,14 @@ local function applyJump(humanoid: Humanoid, settings)
 	end)
 end
 
---! Push the current rules onto one character. Called on every spawn and after every transform.
-function GameplayService.applyBaseline(player: Player, character: Model?)
-	local character_ = character or player.Character
-	if not character_ then
-		return
-	end
+--! The rules themselves, applied to any character. Split out because a bot character has to obey
+--! the same round rules as a player's and has no Player to resolve settings against.
+local function applySettings(character_: Model, settings)
 	local humanoid = character_:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
 
-	local settings = resolve(player)
 	humanoid.WalkSpeed = settings.WalkSpeed
 	applyJump(humanoid, settings)
 
@@ -105,6 +101,21 @@ function GameplayService.applyBaseline(player: Player, character: Model?)
 			end
 		end
 	end
+end
+
+--! Push the current rules onto one character. Called on every spawn and after every transform.
+function GameplayService.applyBaseline(player: Player, character: Model?)
+	local character_ = character or player.Character
+	if not character_ then
+		return
+	end
+	applySettings(character_, resolve(player))
+end
+
+--! The same rules for a bot: it has no Player, so it follows the round baseline — which means
+--! "everyone walks at 23" from a modifier applies to the bots too.
+function GameplayService.applyToBot(character: Model)
+	applySettings(character, baseline)
 end
 
 function GameplayService.applyAll()

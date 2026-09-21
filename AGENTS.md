@@ -101,6 +101,13 @@ place and repo match
 If you change the hash on one side, change it on the other — the two implementations are in
 `tests/studio_hashes.luau` and `tests/sync_audit.py`.
 
+**A Play session snapshots the place, so it can start without your newest file.** Pressing Play while
+the plugin is still patching gives you a server running the *previous* code, which looks exactly like
+a change that did not work — and it happened twice on 2026-09-21, once costing a whole debugging pass
+on a module that was never loaded. Before pressing Play, confirm the module exists in the **Edit**
+datamodel; after pressing Play, confirm the running server agrees. Both are two lines of
+`execute_luau`:
+
 **Two analyzers are installed, and they disagree usefully.** `johnnymorganz.luau-lsp` resolves types
 through `sourcemap.json`; `nightrains.robloxlsp` checks Roblox-specific things it does not. Both
 binaries ship inside their VS Code extensions, so neither needs `aftman install` — run one directly to
@@ -150,6 +157,21 @@ is a script, so it publishes like any other.
   as a directive. Existing files still contain such comments, and the *first* line of each file is a
   real directive, so only new prose comments are affected.
 - Never leave a `print` in shipped code — use `Util/Log.lua`.
+
+---
+
+## Testing a fight without a second human
+
+`BotService` spawns CPU combatants when `ServerStorage.DevConfig` has `BotCount > 0` (Studio only —
+`DevService` ignores every override outside Studio, so a live server cannot contain bots). They obey
+the round's rules: the loadout decides their weapon, `GameplayService`'s baseline decides their speed
+and health, their shots go through the same `resolveShot` a trigger pull does, and they count as
+combatants for the round-end rule.
+
+Use it before asking for a two-human test, because it is the only way to observe elimination, kill
+credit and a contested round alone. `docs/11-BOTS.md` has the setup, the debug lines to read, what
+the bots deliberately do *not* do, and what promoting it to a real feature would cost. Bots are a
+test aid gated behind a dev flag — do not wire them into a live match path without a decision entry.
 
 ---
 

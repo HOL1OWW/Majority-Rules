@@ -24,6 +24,7 @@ local Log = require(Shared.Util.Log)
 
 local Services = script.Parent:WaitForChild("Services")
 local ArenaService = require(Services.ArenaService)
+local BotService = require(Services.BotService)
 local CombatService = require(Services.CombatService)
 local PlayerService = require(Services.PlayerService)
 local RoundService = require(Services.RoundService)
@@ -93,8 +94,10 @@ if RunService:IsStudio() then
 	end)
 end
 
--- 4. combat, then the show
+-- 4. combat, then the show. BotService connects its tick here and stays inert until a round asks
+-- it for bots (DevConfig BotCount), so this is harmless in a live server.
 CombatService.start()
+BotService.setup()
 RoundService.start()
 
 Log.info("Boot complete")

@@ -35,6 +35,7 @@ local SeededRandom = require(Shared.Util.SeededRandom)
 
 local AnalyticsService = require(script.Parent.AnalyticsService)
 local ArenaService = require(script.Parent.ArenaService)
+local BotService = require(script.Parent.BotService)
 local AudioService = require(script.Parent.AudioService)
 local CombatService = require(script.Parent.CombatService)
 local DevService = require(script.Parent.DevService)
@@ -77,6 +78,13 @@ local function namePayload()
 	return out
 end
 
+--! Everyone the round-end rule can be decided against: players plus any CPU combatants. A bot is
+--! not a Player, so it can never appear in `MatchState.alivePlayers()` — but it can absolutely kill
+--! you, and a round that ignores it would end while it is still standing there.
+local function aliveCombatants(): number
+	return #MatchState.alivePlayers() + BotService.aliveCount()
+end
+
 local function snapshot()
 	return {
 		State = MatchState.State,
@@ -84,7 +92,7 @@ local function snapshot()
 		Total = MatchState.TotalRounds,
 		Label = MatchState.Label,
 		Format = MatchState.Format,
-		Alive = #MatchState.alivePlayers(),
+		Alive = aliveCombatants(),
 		PlayerCount = #Players:GetPlayers(),
 		Points = pointsPayload(),
 		Names = namePayload(),
@@ -126,10 +134,18 @@ local function waitForVotes(seconds: number)
 	end
 end
 
-local function waitForRoundEnd(length: number)
+--! A round can only be decided by elimination if it *began* with someone to eliminate. `contested`
+--! is measured once, as the round goes live: with a single player the survivor check below is true
+--! on its very first tick, so a solo round returned `elimination` about a quarter of a second in.
+--! That is the first-run experience — a lone player joining an empty server — and it meant they
+--! never played, while the match tore through its rounds and sat idle on a loop.
+local function waitForRoundEnd(length: number, contested: boolean)
 	local deadline = os.clock() + length
 	while os.clock() < deadline do
-		if #MatchState.alivePlayers() <= Combat.MinAliveToContinue then
+		-- Two ways a round is decided early: at most one combatant is left, or nobody who can win is
+		-- left. The second clause matters once bots are in play — with the humans dead and a bot still
+		-- standing, the first one is not true and the only thing left to watch is a spectator screen.
+		if contested and (aliveCombatants() <= Combat.MinAliveToContinue or #MatchState.alivePlayers() == 0) then
 			local survivors = MatchState.alivePlayers()
 			return { winner = survivors[1], reason = "elimination", elapsed = length - (deadline - os.clock()) }
 		end
@@ -356,6 +372,7 @@ local function runRound(roundNumber: number, rng: Random)
 	CombatService.resetRound()
 	PlayerService.resetRound()
 	VoteService.reset()
+	BotService.despawnAll()
 	activeDefs = {}
 	activeCtx = nil
 
@@ -485,6 +502,14 @@ local function runRound(roundNumber: number, rng: Random)
 	PlayerService.freezeAll(false)
 	applyToEveryone()
 
+	-- CPU combatants, after the arena has finished moving so they spawn in the new geometry. Count
+	-- comes from DevConfig and DevService ignores it outside Studio, so this is a test aid, not a
+	-- game feature — see BotService's header for what that would take to promote.
+	local botCount = DevService.get("BotCount", 0)
+	if type(botCount) == "number" and botCount > 0 then
+		BotService.spawnAll(math.floor(botCount))
+	end
+
 	if #report.failures > 0 then
 		Log.warn("Transform finished with %d failed step(s) in round %d", #report.failures, roundNumber)
 	end
@@ -500,8 +525,25 @@ local function runRound(roundNumber: number, rng: Random)
 	LootService.SpawnAll(rng)
 	startTicks()
 
-	local endInfo = waitForRoundEnd(roundSeconds)
+	-- Measured here, at the moment the round goes live, so a mid-round join or death cannot turn an
+	-- uncontested round into an elimination the instant it starts.
+	local startBots = BotService.aliveCount()
+	local startAlive = aliveCombatants()
+	local contested = startAlive > Combat.MinAliveToContinue
+	local endInfo = waitForRoundEnd(roundSeconds, contested)
 	stopTicks()
+
+	-- Debug level, so Studio-only: the reason and the real duration are how this rule gets verified
+	-- rather than assumed, because a round that ends early and a round that reaches its deadline are
+	-- otherwise indistinguishable from the client.
+	Log.debug(
+		"Round %d ended: %s after %.1fs, %d alive at the start (%d bot(s))",
+		roundNumber,
+		endInfo.reason,
+		endInfo.elapsed,
+		startAlive,
+		startBots
+	)
 
 	-- Freeze the world for the results screen: no more damage, no more ticks.
 	MatchState.State = "RoundEnd"

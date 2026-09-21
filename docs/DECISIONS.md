@@ -350,3 +350,148 @@ silently always false — and `typeof(x) == "Instance"` is still the right guard
 type definitions from `globalStorage` plus `sourcemap.json`; the one to trust on types) and
 `nightrains.robloxlsp` (whose `invalid-class-name` hint caught this, and which `luau-lsp` does not
 report). Do not "clean up" by removing either one.
+
+---
+
+### D-021 — A round ends by elimination only if it began contested
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`waitForRoundEnd` decides whether to end early against a value measured **once, as the round goes
+live**: `contested = aliveAtStart > Combat.MinAliveToContinue`. A round that began with nobody to
+fight runs its full length and is decided by the deadline rule (healthiest survivor).
+
+**Why:** `Combat.MinAliveToContinue` is 1 and the check was unconditional, so with one player it was
+true on the round's first tick. A solo round returned `{ reason = "elimination" }` about **0.25s**
+in, the match burned through its three rounds in seconds and then sat idle until the next match.
+This is the **first-run experience** — Roblox serves new experiences to 1–3 player servers, and
+`Escalation.formatForPlayerCount` already has a Skirmish format built explicitly for that case, so
+the format and the rule were contradicting each other. The failure was also what made combat
+untestable: a weapon equip was destroyed by a round restart before it could be fired twice.
+
+The rule is not "solo players always win" — the deadline path awards `RoundWinPoints` to the
+healthiest survivor, which for a lone player is simply them. The change is *when* the round ends.
+
+**Cost:** a lone player now waits out the full round length (50–75s, Skirmish 50–60s) in an empty
+arena. If that reads as dead air rather than anticipation, the honest fix is to shorten the solo
+round length or fill it — not to restore an early exit that ends the round before it starts.
+
+**Verification:** confirmed in a one-player Play session. Round 1 (default settings) reported
+`Round 1 ended: timeout after 60.0s, 1 alive at the start`, and after a `DevConfig` override of
+`RoundSeconds = 12` the next two rounds reported the same shape at `12.0s` — every round reaching its
+deadline where the old code returned `elimination` after ~0.25s. **The elimination half is still
+unverified**: it needs two players, and this engine offers no way to add one from a script, so it
+requires a human to run `Test → Players: 2`.
+
+---
+
+### D-022 — "Has a character" means a playable character, not a non-nil property
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`PlayerService.spawn` only treats a player as already spawned if `player.Character` is parented and
+has a `Humanoid` (`hasPlayableCharacter`). `PlayerService.despawn` also drops the reference
+(`player.Character = nil`) with the instance it just destroyed.
+
+**Why:** `despawn` called `character:Destroy()`, and the engine left the resulting empty model —
+0 children, no `Humanoid`, not parented to Workspace — attached to `player.Character`. The old guard
+was `if player.Character then return true end`, so it answered "already spawned" **permanently** from
+the first despawn onwards. The player kept a husk for the rest of the session: no `Humanoid`, no
+loadout, no spawn point, and `MatchState.Alive[player]` never set. Measured in the live server, the
+player sat as `hum=NIL children=0 inWorkspace=no` indefinitely; calling `LoadCharacter` by hand fixed
+it instantly (21 children, `Humanoid`, in Workspace, `Health 100`).
+
+This was found *because* D-021's fixed round reported `0 alive at the start`, and it is the other
+half of the first-run problem: round 1 spawned fine (nothing had been despawned yet), so a lone
+player watched one round and then became unplayable for every round after it. A one-player test is
+exactly where a bug that needs a second despawn hides.
+
+**Cost:** two guards instead of one, and `spawn` can now load a character for a player whose previous
+model is mid-teardown. Worth it — the old guard failed silently and permanently, and every other
+`if player.Character` check in the codebase was fooled by the same stale reference.
+
+**Verification:** same session, after the fix — every round reported `1 alive at the start`, and a
+world probe over 24s showed the cycle working: `hum=NIL children=0 inWorkspace=no` (between rounds)
+→ `hum=yes health=100 walk=16 inWorkspace=yes children=22` (spawned) → `walk=0` (transform freeze).
+The Backpack held `Tool:SIDEARM`, so the loadout path runs again too — **combat is finally testable**,
+which it was not while the player had no `Humanoid`.
+
+---
+
+### D-023 — A victim is the Humanoid that owns the part, found by walking up
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`CombatService` resolves a hit with `humanoidOfHit`, which walks up from the hit part until a node
+*has* a Humanoid child, instead of `hit:FindFirstAncestorOfClass("Humanoid")`.
+
+**Why:** a character's parts are **siblings** of its Humanoid — the Humanoid is a child of the
+character Model, never an ancestor of its limbs — so the ancestor test is **always nil**, for players
+and for bots alike. Measured against a live player character in the engine:
+
+```
+hit = Workspace.<player>.HumanoidRootPart
+FindFirstAncestorOfClass("Humanoid") = nil            <- what the code asked
+FindFirstAncestorOfClass("Model")    = <character>, whose Humanoid child exists
+```
+
+`findVictim` returned nil for every pellet of every shot, so **no shot in this game has ever damaged
+anything**. It failed silently: no error, no warning, and the round simply ran to its deadline. The
+same bug sat in the ricochet branch.
+
+**Cost:** none — the walk is a couple of parent hops. `IsA`-style class checks still belong where the
+repo already uses them (`D-020`).
+
+**Verification:** player → bot damage through the real client path (`WeaponFire` remote, a real Tool):
+`BOT 3 hp=100 → 10`, `BOT 1 hp=100 → 46`, then all three eliminated. See `docs/11-BOTS.md`.
+
+---
+
+### D-024 — Every player's Humanoid is bound at `CombatService.start`
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`CombatService.start` connects `Players.PlayerAdded` → `CombatService.bindPlayer` and binds anyone
+already in the server. Nothing had ever called `bindPlayer`.
+
+**Why:** without the binding, `Humanoid.Died` is never connected for a player, so `onHumanoidDied`
+never runs: no `Alive = false`, no `Eliminated`, no deaths in stats, no kill credit, and a round that
+cannot end early. Measured before the fix: a player shot to zero health with three bots firing at the
+body, the round running on, and no elimination line in the log.
+
+Both this and `D-023` were invisible for the same reason: the damage path had never completed once, so
+nothing could ever die and the code that handles death had never been asked to run.
+
+**Cost:** nothing. It is one connection that the service already had the function for.
+
+**Verification:** after the fix, a round in which the bots killed the player ended
+`elimination after 10.4s`.
+
+---
+
+### D-025 — CPU combatants exist, Studio-only, behind `DevConfig.BotCount`
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`BotService` spawns N CPU combatants per round when `ServerStorage.DevConfig` has `BotCount > 0`, and
+`RoundService` counts them as combatants (`aliveCombatants`).
+
+**Why:** Roblox serves a new experience to 1–3 player servers, and every interesting behaviour in
+this game needs an opponent. With one human, elimination, kill credit and the round-end rule are all
+unobservable — which is exactly why the two bugs above survived a whole build. A bot is a body that
+obeys the same rules: the round's loadout supplies its weapon, `GameplayService`'s baseline supplies
+its speed and health, and its shots go through the same `resolveShot` a trigger pull does.
+
+**Cost and limits, both real:** bots are crude (no pathfinding — straight-line movement plus a
+sidestep when blocked), they do not vote, they do not damage each other, a bot killing a player awards
+nobody points, and they are invisible to every system keyed on `Player` (`MatchState`, the scoreboard,
+the `PlayerDied` signal). Given a bot can now kill you, the round rule gained one clause: with the
+humans dead and a bot still standing, the round ends rather than showing a spectator screen.
+
+Gated by `DevService`, so **it cannot appear in a live server by accident**. Promoting it to a real
+"fill the empty server" feature is a product decision with a short list of consequences, written down
+in `docs/11-BOTS.md` rather than done quietly here.
+
+**Verification:** all three rounds of a three-bot session ended by elimination — the player killing
+all three bots (`34.9s`) and the bots killing the player (`10.4s`, `11.7s`). Bot health went
+100 → 0 in about ten seconds of fire; the HUD credited six points for three kills and the round win.
