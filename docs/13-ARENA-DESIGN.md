@@ -142,6 +142,20 @@ for wall furniture, so it stays flush. The authored position is candidate zero, 
 unless it has to, and every move is logged. See **D-034** for why this replaced hand-solved
 coordinates, and **D-035** for the four props that turned out to be lying on their sides.
 
+**Measured, two revisions later.** The probe's overlap count went **118 → 6 → 0** across three live
+runs. The first run with both the guard and a working probe reported the six, and every one was the
+guard or the probe mis-measuring rather than the arena being wrong:
+
+| Pair | What it actually was |
+| --- | --- |
+| `BarrierBase_3 into LootPad_7`, `BarrierBase_1 into LootPad_2`, `BarrierPost_4 in Spawn_3` | the barrier's footprint was centred on the line's *origin*, not on the middle of a 21-stud line — the guard cleared a window that was half empty floor and half barrier |
+| `GalleryStrut_S_3 into VaultCrown_2` | real: the archive's crown grazed a gallery strut by 0.43 studs |
+| `Emblem into Press_Anvil`, `Emblem into Press_Foot` | real: the press stood in the dais emblem, and no 9.2-stud press fits a 22-stud dais beside a 9-stud emblem |
+| `MarqueeBack into ClockFace` | the probe's own arithmetic: `Position ± Size/2` claims 9 studs of depth for a 0.6-stud-thick clock face, making a sign 3.8 studs away look embedded in it |
+
+The last row is the reason the probe now measures rotated parts through their own axes. A probe that
+reports geometry that is not there is worse than no probe: it spends somebody's afternoon.
+
 ---
 
 ## Measurements
@@ -155,12 +169,31 @@ ok=true  parts=1352  spawns=8  loot=11  cameras=6  transformables=369  groups=26
 instances=1388  smallest loot clearance 9.9 studs (declared 8)  errors=0  warnings=0
 ```
 
-That is the **128 x 128 hall** as built by generator revision 2, read out of a Play session: 1352 of a
-2500-part budget (54%), 369 parts the transform pipeline has to move, eleven crate points against
-five in the 96-stud version. The numbers below it — spawn volumes, risers, sightlines, the void rule —
-were measured on the revisions that introduced them, and the ones that describe *prop placement* were
-the subject of revision 4 (see the section above). Re-measure rather than trust: `ArenaProbe.logReport`
-prints all of it on any Play.
+That is the **128 x 128 hall**, read out of a Play session: 1352 of a 2500-part budget (54%), 369
+parts the transform pipeline has to move, eleven crate points against five in the 96-stud version.
+Identical in revision 2 and revision 5, which is itself a check: moving props and turning cylinders
+upright changes no part counts and no clearance.
+
+**The placement probe, revision 5** — 388 instances, 260 transform groups, 81 chest-height samples an
+inset 8 studs from the partitions (19 of which stood inside a prop and were dropped):
+
+```
+budget       parts 1352 / 2500 (54%), transformables 369, instances 1388
+overlaps     6 pair(s) over 0.25 studs   (118 before the guard — see the section above)
+markers      all 58 marker(s) have CanQuery = false
+             14 visible non-colliding parts block rays (the grout substrate, the VOTE letters)
+spawns       8 spawns, 1 with something in a standing player's volume: a barrier post
+sightlines   62 samples at y=3
+             cover hidden (round start):  1009/1891 pairs blocked (53%)
+             cover raised:                1542/1891 pairs blocked (82%)  ->  1.53x
+ the hole     from Tile_1 down: nothing collidable at all below y = -2.1
+```
+
+53% blocked with cover down is an arena with real sightlines, and 82% with cover up is cover that
+matters: **1.53x**. The earlier revision read 74% and 87%, which is what a grid sampling from *inside
+the walls* looks like, and it was fixed before anybody acted on it (D-036).
+
+Re-measure rather than trust any of this: `ArenaProbe.logReport` prints all of it on any Play.
 
 The earlier gate, for scale — the first arena that passed it was 84 x 84 studs of play space:
 
@@ -248,11 +281,16 @@ on, alive and out of play.
   they do not vote, they do not loot, and nothing about how the game *feels* is measurable against
   them. Since D-037 a Studio Play fills the lobby to eight on its own, which makes a round worth
   watching — it does not make it a playtest.
-* **Revision 4 has not been through a Play session yet.** The placement guard, the prop moves, the
-  cylinder orientations and the probe's own three corrections are all verified by the structure check
-  and by reading, not by the engine: Studio was mid-Play while they were written, and Rojo does not
-  patch the place during a run. The next Play rebuilds on the revision stamp and prints the gate and
-  the probe — that output is the verification, and it does not exist until then.
+* **Revision 6 has not been through a Play session; revision 5 has.** Revision 5's run is where every
+  number above comes from, and it is the run that closed 112 of the 118 overlaps. Revision 6's changes
+  (the barrier footprint, the archive's grazed strut, the press on the dais, and the probe's rotated
+  extents) are verified by arithmetic and the structure check, not by the engine — the next Play is what
+  turns them into measurements. Expect the overlap count to read 0, and treat that as the signal that
+  the guard is now measuring the right volumes: three of the last six findings were the guard
+  measuring half of a barrier line.
+* **The placement guard moves props, and it does not know what looks good.** Seventeen props go through
+  it. It keeps wall furniture against its wall and it logs every move, but a designer's composition is
+  not one of its inputs — the authored coordinate is simply its first candidate.
 * **Mobile and console have never been exercised**, so nothing here is verified at 30fps on a phone.
 * The arena is still inside OneDrive (see `docs/10-HANDOFF.md`).
 
