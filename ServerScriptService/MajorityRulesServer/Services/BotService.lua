@@ -22,6 +22,8 @@
 	  * their shots go through `CombatService.botFire`, the same `resolveShot` a trigger pull uses
 	  * their health and walk speed come from GameplayService's round baseline, so Sluggish and
 	    SpeedBoost reach them
+	--   * they fight like bodies: they answer whoever shot them, drift while holding, and disengage
+	--     when losing — which is what makes seven of them a match instead of a firing line (D-044)
 	  * they count as combatants for the round-end rule — which is the entire point
 ]]
 
@@ -67,6 +69,17 @@ end
 local FIRE_INTERVAL_SCALE = 2.4 -- multiple of the weapon's own FireRate
 local AIM_ERROR_RADIUS = 2.2 -- studs of miss at the target's distance
 local ENGAGE_RANGE = 40 -- close to within this before shooting; further out it advances instead
+
+--! Playing like a body, not a turret (D-044): a bot that answers its attacker, drifts sideways while
+--! it holds, and backs off when it is losing reads as a player. Every number here is a designer
+--! knob; none of them change what a shot can do — that is CombatService's business.
+local TARGET_STICKINESS = 10 -- studs of preference keeping the current target interesting
+local GRUDGE_SECONDS = 5 -- how long the last character that damaged this bot stays its target
+local STRAFE_SECONDS = 1.2 -- how long one sideways drift lasts before the direction may flip
+local STRAFE_STUDS = 6 -- how far a drift reaches
+local RETREAT_HEALTH_FRACTION = 0.3 -- below this share of health, disengage after the next hit
+local RETREAT_SECONDS = 2.5 -- how long a disengagement runs before re-engaging
+local RETREAT_STUDS = 14 -- how far a disengagement runs
 
 -- -------------------------------------------------------------------------------- vision handicap
 --! Vision modifiers are the one family a bot cannot feel. Its line of sight is a geometric raycast, so
@@ -140,6 +153,12 @@ local function botProfile()
 	return nil
 end
 
+--! True when a character is still in the round and alive, for grudge bookkeeping.
+local function livingCharacter(model: Model): boolean
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	return model.Parent ~= nil and humanoid ~= nil and humanoid.Health > 0
+end
+
 --! The nearest living combatant — a player *or* another bot.
 --!
 --! Targeting only players made a dev round measure nothing: with one human and seven bots, all
@@ -148,7 +167,7 @@ end
 --! with seven bots standing, so a "round length" measured that way is the human's survival time, not
 --! the arena's. Bots that fight each other are the only way a Studio round is eight players instead
 --! of one. In production there are no bots, so this is exactly the old behaviour.
-local function nearestCombatant(origin: Vector3, self: Model): (Model?, Vector3?)
+local function nearestCombatant(origin: Vector3, self: Model, rng: Random): (Model?, Vector3?)
 	local best: Model? = nil
 	local bestPosition: Vector3? = nil
 	local bestDistance = math.huge
@@ -163,6 +182,10 @@ local function nearestCombatant(origin: Vector3, self: Model): (Model?, Vector3?
 			return
 		end
 		local distance = (root.Position - origin).Magnitude
+		-- Ten studs of stickiness, drawn from the bot's own rng so every bot draws differently:
+		-- without it seven bots in a ring all agree on the same nearest body and move as one school
+		-- of fish, which is exactly the not-players look this service exists to avoid.
+		distance += rng:NextNumber() * TARGET_STICKINESS
 		if distance < bestDistance then
 			best = character
 			bestPosition = root.Position
@@ -228,16 +251,46 @@ local function tickBot(model: Model, state)
 		return
 	end
 
-	local target, targetPosition = nearestCombatant(root.Position, model)
+	local now = os.clock()
+
+	-- Answer your attacker (D-044). CombatService records which character landed the last hit, so a
+	-- bot being shot in the back turns around instead of walking at whoever is nearest. The grudge
+	-- decays after GRUDGE_SECONDS, and a dead or despawned attacker is dropped immediately.
+	local attacker = CombatService.lastAttackerOf(humanoid)
+	if attacker and attacker ~= model then
+		state.Grudge = attacker
+		state.GrudgeUntil = now + GRUDGE_SECONDS
+	elseif state.Grudge and (now >= state.GrudgeUntil or not livingCharacter(state.Grudge)) then
+		state.Grudge = nil
+	end
+
+	local target, targetPosition = nearestCombatant(root.Position, model, state.Rng)
+	if state.Grudge then
+		local grudgeRoot = state.Grudge:FindFirstChild("HumanoidRootPart")
+		if grudgeRoot then
+			target = state.Grudge
+			targetPosition = grudgeRoot.Position
+		end
+	end
 	if not target or not targetPosition then
 		return
 	end
 
-	local now = os.clock()
 	local distance = (targetPosition - root.Position).Magnitude
 	local visible = hasLineOfSight(model, target)
 	local profile = state.Profile
 	local engageRange = profile and math.min(profile.Range, ENGAGE_RANGE * visionScale()) or 0
+
+	-- Back off when the fight is being lost (D-044): real players reset a fight they are losing, and
+	-- a bot that only ever advances dies mid-charge with its weapon unused. Retriggering needs
+	-- *fresh* damage — a bot at 20% that disengages, survives and re-engages does not flee forever.
+	local healthFraction = humanoid.Health / math.max(humanoid.MaxHealth, 1)
+	if state.LastHealthFraction - healthFraction > 0.02
+		and healthFraction < RETREAT_HEALTH_FRACTION
+		and now >= state.RetreatUntil then
+		state.RetreatUntil = now + RETREAT_SECONDS
+	end
+	state.LastHealthFraction = healthFraction
 
 	-- Advance until there is a shot to take, then hold. Two lessons are baked into this: the first
 	-- version only advanced while the target was beyond HOLD_DISTANCE, so on an arena with cover every
@@ -262,17 +315,43 @@ local function tickBot(model: Model, state)
 	end
 
 	local sidestepping = now < state.SidestepUntil and state.SidestepTarget ~= nil
+	local retreating = now < state.RetreatUntil
 	if now >= state.NextRepathAt then
 		state.NextRepathAt = now + REPATH_INTERVAL
 		if sidestepping then
 			humanoid:MoveTo(state.SidestepTarget :: Vector3)
+		elseif retreating then
+			-- Away from the target, refreshed each repath so the run curves around cover instead of
+			-- backing straight into a corner. It may still fire while running, which is kiting.
+			local away = (root.Position - targetPosition) * Vector3.new(1, 0, 1)
+			away = away.Magnitude > 0.1 and away.Unit or Vector3.new(1, 0, 0)
+			humanoid:MoveTo(root.Position + away * RETREAT_STUDS)
 		elseif advancing then
 			humanoid:MoveTo(targetPosition)
 		else
-			-- Hold the position and turn to face: jittering around the engage range reads as a bug, and
-			-- standing still gives the player something to aim at.
-			humanoid:MoveTo(root.Position)
-			aimAt(model, targetPosition)
+			-- Hold, but like a body: track sideways so a still bot is not a free shot and seven
+			-- holders do not line up in one lane. When the drift is spent the bot plants and aims,
+			-- which is the only time it writes the CFrame — walking and writing it fight.
+			if now >= state.StrafeUntil then
+				state.StrafeUntil = now + STRAFE_SECONDS * (0.6 + state.Rng:NextNumber() * 0.8)
+				if state.Rng:NextNumber() < 0.35 then
+					state.StrafeDir = -state.StrafeDir
+				end
+				local toTarget = Vector3.new(
+					targetPosition.X - root.Position.X, 0, targetPosition.Z - root.Position.Z
+				)
+				if toTarget.Magnitude > 0.1 then
+					local perpendicular = Vector3.new(-toTarget.Unit.Z, 0, toTarget.Unit.X) * state.StrafeDir
+					state.StrafeTarget = root.Position + perpendicular * STRAFE_STUDS
+				end
+			end
+			local drift = state.StrafeTarget
+			if drift and (drift - root.Position).Magnitude > 1.5 then
+				humanoid:MoveTo(drift)
+			else
+				humanoid:MoveTo(root.Position)
+				aimAt(model, targetPosition)
+			end
 		end
 	end
 
@@ -284,12 +363,13 @@ local function tickBot(model: Model, state)
 	if now >= state.NextReportAt then
 		state.NextReportAt = now + REPORT_INTERVAL
 		Log.debug(
-			"Bots: %s target=%s %.1f studs los=%s ready=%s weapon=%s",
+			"Bots: %s target=%s %.1f studs los=%s ready=%s retreat=%s weapon=%s",
 			model.Name,
 			target.Name,
 			distance,
 			tostring(visible),
 			tostring(ready),
+			tostring(retreating),
 			profile and profile.DisplayName or "none"
 		)
 	end
@@ -418,6 +498,13 @@ function BotService.spawnAll(count: number)
 			LastPosition = root.Position,
 			SidestepUntil = 0,
 			SidestepTarget = nil,
+			Grudge = nil,
+			GrudgeUntil = 0,
+			StrafeUntil = 0,
+			StrafeDir = 1,
+			StrafeTarget = nil,
+			RetreatUntil = 0,
+			LastHealthFraction = 1,
 		}
 		created += 1
 	end

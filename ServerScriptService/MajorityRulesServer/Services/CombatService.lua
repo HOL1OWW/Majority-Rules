@@ -28,7 +28,7 @@ local MatchState = require(script.Parent.MatchState)
 local CombatService = {}
 
 local lastFireAt = {} -- [Player] = os.clock()
-local lastDamageBy = {} -- [Humanoid] = { Player = Player, At = number }
+local lastDamageBy = {} -- [Humanoid] = { Player = Player?, Model = Model?, At = number }
 local boundPlayers = {}
 local hazardLoopStarted = false
 
@@ -137,8 +137,10 @@ local function protectionActive(player: Player?): boolean
 end
 
 --! `attacker` is nil when a bot fired: bots have no Player, so they can neither steal kill credit
---! nor heal from lifesteal. Everything else is identical to a player's shot.
-local function applyDamage(attacker: Player?, victimHumanoid: Humanoid, amount: number)
+--! nor heal from lifesteal. `attackerCharacter` is the firing body either way — it is what a bot
+--! reads to know who shot it, so a shot from another machine can be answered (D-044). Everything
+--! else is identical to a player's shot.
+local function applyDamage(attacker: Player?, attackerCharacter: Model?, victimHumanoid: Humanoid, amount: number)
 	if not victimHumanoid.Parent or victimHumanoid.Health <= 0 then
 		return
 	end
@@ -152,9 +154,10 @@ local function applyDamage(attacker: Player?, victimHumanoid: Humanoid, amount: 
 	end
 
 	-- Only a player's damage claims the kill. A bot's hit leaves attribution alone, so a player who
-	-- softened the target first keeps the credit.
-	if attacker then
-		lastDamageBy[victimHumanoid] = { Player = attacker, At = os.clock() }
+	-- softened the target first keeps the credit. The firing *character* is recorded regardless —
+	-- bot retaliation reads it, kill credit still does not.
+	if attacker or attackerCharacter then
+		lastDamageBy[victimHumanoid] = { Player = attacker, Model = attackerCharacter, At = os.clock() }
 	end
 
 	local lifesteal = MatchState.getFlag("Lifesteal", 0)
@@ -261,18 +264,21 @@ local function resolveShot(
 	for _, pelletDirection in traceDirections(origin, direction, profile, rng) do
 		local humanoid = findVictim(origin, pelletDirection, profile.Range, params)
 		if humanoid and humanoid.Parent and humanoid ~= ownHumanoid then
-			local victimPlayer = Players:GetPlayerFromCharacter(humanoid.Parent)
-			-- A player's shot may hit anything humanoid. A bot's shot only counts against players, so
-			-- two bots do not grind each other down while the human is the point of the test.
-			if shooter ~= nil or victimPlayer ~= nil then
-				hits[humanoid] = (hits[humanoid] or 0) + profile.Damage
-				victimCount += 1
-			end
+		local victimPlayer = Players:GetPlayerFromCharacter(humanoid.Parent)
+		-- Any humanoid counts: bot on bot, bot on player, player on either. The old gate — a bot's
+		-- shot only counted against players — existed when bots were a prop for testing the human's
+		-- round, and it made the seven-bot simulation a puppet show: every bot aimed, fired and
+		-- whiffed at every other bot, because the damage was discarded before it was applied. Bots
+		-- that cannot hurt each other cannot have a fight. In a live server there are no bots, so no
+		-- shot has a bot shooter and no victim is a bot: this branch is unreachable in production,
+		-- which is what keeps it honest (D-044).
+		hits[humanoid] = (hits[humanoid] or 0) + profile.Damage
+		victimCount += 1
 		end
 	end
 
 	for humanoid, damage in hits do
-		applyDamage(shooter, humanoid, damage)
+		applyDamage(shooter, shooterCharacter, humanoid, damage)
 	end
 
 	return victimCount
@@ -358,6 +364,27 @@ end
 --! Points, stats and the on-screen notice for whoever last damaged this Humanoid. Shared by player
 --! deaths and bot deaths, so dropping a bot is worth exactly what dropping a player is worth.
 --! `victimPlayer` is nil for a bot victim.
+--! The character that last damaged this humanoid within the credit window, or nil. This is how a
+--! bot knows who shot it — a player or another bot — so it can turn and answer the damage (D-044).
+--! Kill credit deliberately stays player-only; this reads the same table without consuming it.
+function CombatService.lastAttackerOf(victimHumanoid: Humanoid): Model?
+	local attribution = lastDamageBy[victimHumanoid]
+	if not attribution then
+		return nil
+	end
+	if os.clock() - attribution.At > KILL_CREDIT_WINDOW then
+		return nil
+	end
+	local model = attribution.Model
+	if model and model.Parent then
+		local attackerHumanoid = model:FindFirstChildOfClass("Humanoid")
+		if attackerHumanoid and attackerHumanoid.Health > 0 then
+			return model
+		end
+	end
+	return nil
+end
+
 function CombatService.creditKill(victimPlayer: Player?, victimHumanoid: Humanoid): Player?
 	local attribution = lastDamageBy[victimHumanoid]
 	lastDamageBy[victimHumanoid] = nil

@@ -316,3 +316,78 @@ across many files — so it is a per-task choice, not a permanent one.
 
 Next three jobs, in order: **connect Rojo and playtest a full match**, **build the Clerk**, **add
 arenas 2 and 3**.
+
+---
+
+## 9. Editing the map and keeping it in sync
+
+**First, know which of the two arenas you are editing.** The game has one hand-authored arena
+(`assets/arenas/`, saved from Studio as `.rbxmx`) and one generated arena — the Foundry hall, produced
+by `ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua` and stamped with `GeneratorRevision`.
+They have different edit workflows:
+
+### 9.1 The generated hall (Foundry) — edit the generator, not the part
+
+The hall you see on Play is *code output*, not stored geometry. Two rules follow from that:
+
+1. **Hand-moving a part of the hall does not persist.** Any hand edit to `ServerStorage.Arenas.Foundry`
+   survives until the next Play, where `Bootstrap` compares the arena's `GeneratorRevision` stamp
+   against `BuildFoundry.Revision` and rebuilds when they disagree. A hand edit also breaks the stamp
+   contract (a hand-edited hall claims a generator revision it no longer matches).
+2. **The way to change the hall is to change `BuildFoundry.lua`** — or tell the agent what you want and
+   have it change the code — then press Play: the revision stamp does the rest. Tuning knobs are
+   constants at the top of the file (`TILE`, `GRID`, `COVER_RADIUS`, …); props are functions
+   (`votingBooths`, `archiveVault`, …); the placement guard slides props clear automatically and logs
+   every move.
+
+### 9.2 The hand-authored arenas — Studio-first, exactly as documented
+
+1. In Studio's Explorer, right-click the arena model → **Save to File** →
+   `assets/arenas/<ArenaId>.rbxmx` (create the file if it does not exist; keep ArenaId as the filename).
+2. Say "publish" to the agent. The pipeline reads the place and diffs it against the repo; the new
+   `.rbxmx` lands in the repo, the agent commits and pushes.
+3. For your brother: same steps, no Rojo needed — Team Create means you share one DataModel, and the
+   publish pipeline reads that shared DataModel, not either of your sessions.
+
+The contract (`docs/01-ARENA-CONTRACT.md` §3) defines the folder/tag structure inside the model. The
+tags are the game's entire interface to your map — the game never looks up parts by name or path.
+
+### 9.3 Making a change to the Foundry hall: the full loop
+
+1. **Play once and watch the Output** — the placement guard logs every slide, the probe prints its
+   report, and rounds run with 7 bots automatically in Studio. Note what you want changed.
+2. **Edit the generator.** Either tell the agent ("move the booths to the west wall", "add a second
+   archive aisle") or edit `ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua` yourself —
+   change constants or the prop functions, bump `BuildFoundry.Revision` by 1 (required whenever output
+   could change; the doc comment on the constant says so).
+3. **Play again.** Bootstrap rebuilds on the stamp mismatch, the probe re-measures, and the guard
+   re-slides. The gate line (`Foundry passes ArenaValidator: …`) must read 0 errors.
+4. **Say "publish"** — agent verifies, documents, commits and pushes; everything in sync.
+
+### 9.4 Quick reference: what the tags mean when you edit
+
+| You want to add… | Tag it | And give it |
+| --- | --- | --- |
+| scenery that never transforms | `MRArenaStatic` | nothing else |
+| a part a modifier may move/scale/hide | `MRArenaTransformable` | `TransformGroup` attribute |
+| a spawn point | `MRArenaSpawn` | `SpawnIndex` |
+| a weapon crate point | `MRLootPoint` | `LootWeight`, `ClearanceRadius 8` |
+| a damaging volume | `MRArenaHazard` | `HazardType` |
+| a vote-showcase camera | `MRVoteCamera` | `Order` |
+| the winning-vote nameplate anchor | `MRVoteNameplate` | nothing else |
+
+Every tag lives in `ReplicatedStorage/Shared/Tags.lua`, which is the contract file — renaming a tag
+there is a contract change (needs a D-0xx entry).
+
+### 9.5 Validate before you hand the map on
+
+In Studio's command bar (View → Command Bar):
+
+```lua
+require(ServerStorage.Tools.ArenaValidator).report(game.ServerStorage.Arenas:FindFirstChild("Foundry"))
+```
+
+0 errors is the merge bar. `ArenaProbe.logReport` prints the full placement report on any Play.
+
+---
+

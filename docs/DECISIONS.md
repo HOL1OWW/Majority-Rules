@@ -1035,3 +1035,29 @@ math was correct — it was faithfully measuring a disc that really was horizont
 
 **Cost:** the clock hands moved out 0.6 studs to sit in front of the upright disc. Nothing else uses
 the wrong-axis idiom — every cylinder was checked by hand.
+
+---
+
+### D-044 — Bots are combatants, not props: bot shots damage bots
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`resolveShot`'s victim gate — "a bot's shot only counts against players" — is gone. Any humanoid
+counts: bot on bot, bot on player, player on either. Alongside it, BotService gained the three
+behaviours that make a bot read as a body: it **retaliates** against whoever last damaged it
+(`CombatService.lastAttackerOf`, a 5-second grudge that beats nearest-target), **drifts sideways**
+while holding position so a still bot is not a free shot, and **disengages** when fresh damage drops
+it below 30% health. Targeting also gained 10 studs of per-bot stickiness so seven bots stop agreeing
+on one nearest target and moving as a school of fish.
+
+**Why:** the old gate existed when bots were a prop for testing the human's round, and it made the
+simulation a puppet show — every bot aimed at another bot, fired, and the damage was discarded before
+it was applied. A "fight" where shots cannot connect is not a fight. In a live server no shooter and
+no victim is a bot, so the removed branch was unreachable in production; the change is
+Studio-simulation-only in effect.
+
+**Cost:** kill credit stays player-only (`lastDamageBy` records the firing *character* for
+retaliation, but only a player attacker can claim the kill), so a bot that softens a target for a
+player still cannot steal the kill. Attribution now stores a Model alongside the Player, and
+`lastAttackerOf` reads it without consuming it, so `creditKill` behaviour is unchanged. The
+retaliation grudge can pull a bot across the map toward its attacker; that is what a player would do.

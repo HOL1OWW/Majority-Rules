@@ -24,7 +24,9 @@ with kill credit and points landing on the HUD.
 
 **Bots exist now** — `BotService`, Studio-only behind `DevConfig.BotCount`, so a round can be played
 and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second
-player" as the way to exercise combat.
+player" as the way to exercise combat. Since D-044 they fight like bodies, not turrets: bot shots
+damage bots (the old player-only gate made every bot-on-bot shot a whiff), they retaliate against
+whoever last hit them, drift while holding, and disengage when losing.
 
 **The loadout leak was real, and is fixed.** D-026 said there was no carry-over; a round that voted
 `PistolsOnly` followed by a round that voted for anything else proved there was — every later round
