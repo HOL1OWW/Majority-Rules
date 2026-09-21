@@ -62,7 +62,7 @@ local BuildFoundry = {}
 --! differ from. Scripts have `tests/sync_audit.py` for exactly this; generated geometry needs its
 --! own stamp. `Bootstrap` compares the stamp against this number in Studio and rebuilds on a
 --! mismatch, so pressing Play always tests the hall this source describes.
-BuildFoundry.Revision = 4
+BuildFoundry.Revision = 5
 
 -- --------------------------------------------------------------------------------------- scale
 -- All in studs. These are the design's tuning knobs; change one and re-run the validator.
@@ -202,6 +202,26 @@ local occupied: { { min: Vector3, max: Vector3, name: string } } = {}
 local GUARD_MARGIN = 0.4 -- studs of air a prop must leave around its footprint
 local GUARD_FLOOR = 0.6 -- bounds entirely below this are floor decor; a prop may stand on them
 
+--! Names of the building itself. A prop is *meant* to abut these — a filing bank's back sits 0.25
+--! studs off the wall slats, a notice board 0.05 — so the guard must not demand clearance from them,
+--! or every wall-mounted prop fails its search and stays where it was. The first version did exactly
+--! that: all fourteen banks, all three notice boards and one barrier reported "found no clear ground"
+--! and nothing moved. Cover is deliberately *not* in this list: props must avoid cover.
+--! Only the surfaces a prop is mounted *on*: the partitions and their slats, the building's own
+--! shell, the plinth, the floor. Deliberately not the upper level, the stairs or the dais — those are
+--! things props must still avoid, and a bank that slid along its wall into a balcony leg is one of the
+--! collisions this guard exists to prevent.
+local STRUCTURE = { "^Wall", "^Shell", "^Base_", "^Tile", "^Lava" }
+
+local function isStructure(name: string): boolean
+	for _, pattern in STRUCTURE do
+		if string.match(name, pattern) then
+			return true
+		end
+	end
+	return false
+end
+
 local function registerBounds(instance: BasePart)
 	if instance.Transparency >= 0.9 then
 		return -- invisible: a marker, and nothing collides with what cannot be seen
@@ -213,7 +233,12 @@ local function registerBounds(instance: BasePart)
 		math.abs(cf.RightVector.Y) * half.X + math.abs(cf.UpVector.Y) * half.Y + math.abs(cf.LookVector.Y) * half.Z,
 		math.abs(cf.RightVector.Z) * half.X + math.abs(cf.UpVector.Z) * half.Y + math.abs(cf.LookVector.Z) * half.Z
 	)
-	local box = { min = cf.Position - extents, max = cf.Position + extents, name = instance.Name }
+	local box = {
+		min = cf.Position - extents,
+		max = cf.Position + extents,
+		name = instance.Name,
+		structure = isStructure(instance.Name),
+	}
 	if box.max.Y >= GUARD_FLOOR then
 		table.insert(occupied, box)
 	end
@@ -237,7 +262,7 @@ local function clearAt(position: Vector3, size: Vector3): boolean
 	local minX, maxX = position.X - size.X / 2 - GUARD_MARGIN, position.X + size.X / 2 + GUARD_MARGIN
 	local minZ, maxZ = position.Z - size.Z / 2 - GUARD_MARGIN, position.Z + size.Z / 2 + GUARD_MARGIN
 	for _, box in occupied do
-		if box.max.Y > 0.05 and box.min.Y < size.Y then
+		if not box.structure and box.max.Y > 0.05 and box.min.Y < size.Y then
 			if maxX > box.min.X and minX < box.max.X and maxZ > box.min.Z and minZ < box.max.Z then
 				return false
 			end
@@ -290,19 +315,29 @@ end
 --! into the room. `size` is the footprint plus height the prop occupies. The authored position is
 --! always candidate zero, so a prop only moves when it has to.
 local function settle(preferred: Vector3, size: Vector3, label: string, alongX: boolean, step: number, tries: number): Vector3
-	for attempt = 0, tries do
-		for _, sign in { 1, -1 } do
-			local distance = attempt == 0 and 0 or attempt * step * sign
-			local candidate = alongX and preferred + Vector3.new(distance, 0, 0) or preferred + Vector3.new(0, 0, distance)
-			if clearAt(candidate, size) then
-				if attempt > 0 then
-					Log.info(
-						"BuildFoundry: %s slid %.1f studs along its lane to clear the geometry",
-						label,
-						math.abs(distance)
-					)
+	-- Two passes: along the prop's own lane first, so wall furniture stays against its wall, and then
+	-- across it. The second pass exists because a 21-stud queue barrier set across a ring of crate pads
+	-- cannot clear them by sliding *along* itself — the pads are off to the side of the line, and one of
+	-- the four barriers reported "no clear ground" for exactly that reason.
+	for pass = 1, 2 do
+		local lane = (pass == 1) == alongX
+		for attempt = 0, tries do
+			for _, sign in { 1, -1 } do
+				if pass == 1 or attempt > 0 then
+					local distance = attempt == 0 and 0 or attempt * step * sign
+					local candidate = lane and preferred + Vector3.new(distance, 0, 0) or preferred + Vector3.new(0, 0, distance)
+					if clearAt(candidate, size) then
+						if attempt > 0 then
+							Log.info(
+								"BuildFoundry: %s slid %.1f studs %s to clear the geometry",
+								label,
+								math.abs(distance),
+								lane and "along its lane" or "across its lane"
+							)
+						end
+						return candidate
+					end
 				end
-				return candidate
 			end
 		end
 	end

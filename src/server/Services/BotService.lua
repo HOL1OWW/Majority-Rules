@@ -31,6 +31,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Combat = require(Shared.Config.Combat)
+local Modifiers = require(Shared.Modifiers)
 local Weapons = require(Shared.Weapons.WeaponRegistry)
 local Log = require(Shared.Util.Log)
 
@@ -66,6 +67,31 @@ end
 local FIRE_INTERVAL_SCALE = 2.4 -- multiple of the weapon's own FireRate
 local AIM_ERROR_RADIUS = 2.2 -- studs of miss at the target's distance
 local ENGAGE_RANGE = 40 -- close to within this before shooting; further out it advances instead
+
+-- -------------------------------------------------------------------------------- vision handicap
+--! Vision modifiers are the one family a bot cannot feel. Its line of sight is a geometric raycast, so
+--! `Blackout` and `Fog` blind the player and leave the machine untouched: a round that voted Blackout
+--! lasted **8.0 seconds** with seven bots that could see the whole hall and one human who could not
+--! (D-038). Until there is a real vision model — a sight cone, a memory of where a target was — bots
+--! take the same handicap the lighting gives a player, by *range* rather than by pixels.
+local VISION_EFFECT = "VisionLimited"
+local VISION_FLOOR = 0.25 -- a quarter of normal range is a room's length, not a wallhack
+
+local function visionScale(): number
+	local scale = 1
+	for _, id in MatchState.ActiveModifiers do
+		local def = Modifiers.get(id)
+		if def and def.Effects then
+			for _, effect in def.Effects do
+				if effect == VISION_EFFECT then
+					scale *= 0.5
+					break
+				end
+			end
+		end
+	end
+	return math.max(VISION_FLOOR, scale)
+end
 local REPATH_INTERVAL = 0.4 -- seconds between MoveTo calls
 local FIRST_SHOT_DELAY = 1.5 -- a beat, so a round does not open with three simultaneous shots
 local CORPSE_SECONDS = 3 -- how long a dead bot stays visible
@@ -210,12 +236,14 @@ local function tickBot(model: Model, state)
 	local now = os.clock()
 	local distance = (targetPosition - root.Position).Magnitude
 	local visible = hasLineOfSight(model, target)
+	local profile = state.Profile
+	local engageRange = profile and math.min(profile.Range, ENGAGE_RANGE * visionScale()) or 0
 
 	-- Advance until there is a shot to take, then hold. Two lessons are baked into this: the first
 	-- version only advanced while the target was beyond HOLD_DISTANCE, so on an arena with cover every
 	-- bot stood still and never fired; and it wrote the root CFrame every frame to aim, which fights
 	-- the walker and keeps it in place. Facing is the humanoid's job while it walks.
-	local advancing = (not visible) or distance > ENGAGE_RANGE
+	local advancing = (not visible) or distance > engageRange
 
 	if now >= state.NextProgressCheckAt then
 		state.NextProgressCheckAt = now + PROGRESS_INTERVAL
@@ -248,8 +276,6 @@ local function tickBot(model: Model, state)
 		end
 	end
 
-	local profile = state.Profile
-	local engageRange = profile and math.min(profile.Range, ENGAGE_RANGE) or 0
 	local ready = profile ~= nil and now >= state.NextFireAt and distance <= engageRange and not sidestepping
 
 	-- Debug level, so Studio-only. A bot that stands there silently is indistinguishable from a bot

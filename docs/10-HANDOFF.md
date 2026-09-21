@@ -181,6 +181,10 @@ arena. Re-export it after significant geometry changes, and prefer `.rbxmx` so d
 * 1 arena and 23 modifiers, against a 40+ modifier target. `docs/08-MAP-AI-BRIEF.md` is the brief
   handed to map contributors.
 * Mobile/console gamepad input paths have never been exercised.
+* A bot *vision* model. Bots aim by a geometric raycast plus a range, so `Blackout` and `Fog` are
+  approximated as a range penalty rather than a sight cone, and a bot has no memory of where a target
+  went (D-038). Everything else about bots is real: they take damage, count as combatants for the
+  round-end rule, and shoot through the same `resolveShot` a player trigger pull uses.
 
 ---
 

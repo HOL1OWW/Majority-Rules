@@ -309,7 +309,10 @@ local function samplePoints(clone: Model, solid: { BasePart }): ({ Vector3 }, nu
 	-- so every one of their rays was blocked at a range of zero and the arena read as 74% blind at
 	-- chest height when it is nothing of the kind. A sample has to be somewhere a player can stand.
 	local inset = 8
-	local params = RaycastParams.new()
+	-- OverlapParams, not RaycastParams: `GetPartBoundsInRadius` is a bounds query and rejects a
+	-- RaycastParams outright ("Unable to cast RaycastParams to OverlapParams"), which is how this
+	-- check spent a whole run reporting a failure instead of a measurement.
+	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { solid }
 

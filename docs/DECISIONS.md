@@ -892,3 +892,32 @@ round), and otherwise **Studio fills the lobby to 8** while a live server gets z
 `RunService:IsStudio()`, not the presence of a config folder, so there is still no way to turn this on
 in production. Bots were already full combatants for the round-end rule (`aliveCombatants` counts
 them), which is why a round with them can end by elimination.
+
+### D-038 — A vision modifier has to blind the bots too
+
+With D-037 in place, a Play session finally produced a round worth reading, and the round durations
+were:
+
+| Vote | Round length |
+| --- | --- |
+| `Fragile`, `ShotgunsOnly`, `NoJump`, `Gamble` | **2.8s** |
+| `Fog`, `MeleeOnly`, `SmallMap`, `Gamble` | **4.7s** |
+| `LowGravity`, `DoubleJump`, `SpeedBoost`, `Gamble` | 7.6s |
+| `PistolsOnly`, `Blackout` | **8.0s** |
+| `ShotgunsOnly`, `NoJump` | 12.5s |
+
+Two readings. The first is that the short rounds are the *right* short rounds: `Fragile` cuts health and
+`MeleeOnly` takes away reach, so a 2.8-second brawl is the modifier working, not the arena failing. The
+second is a bug. A bot's line of sight is a geometric raycast, so **`Blackout` blotted out the hall for
+the one human and did nothing at all to seven machines** — an 8.0-second turkey shoot that reads in a
+log exactly like a well-balanced round.
+
+Until bots have a vision model worth the name — a sight cone, a memory of where a target went — they get
+the handicap by *range*: each stacked modifier carrying the `VisionLimited` effect halves engagement
+range, floored at a quarter (`BotService.visionScale`). That is deliberately crude. The point is that a
+vision modifier now changes the fight for everyone in it, and a round that votes `Blackout` is no longer
+the round where the machines win by default.
+
+**Cost:** bots are now noticeably weaker in `Fog` and `Blackout`, which will make those rounds last
+longer and read as easier. If a bot is meant to be a *threat* in a vision round rather than a body,
+that is the knob to argue about — and the honest fix is a sight cone, not a range multiplier.
