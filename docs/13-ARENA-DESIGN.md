@@ -198,10 +198,26 @@ barrier post was standing in one), the markers stayed silent at 58, and the sigh
 reading was 74% / 87%, which is what a grid sampling from *inside the walls* looks like; it was fixed
 before anybody acted on it (D-036).
 
-**Revision 7 (not yet run)** is where the overlap count is expected to go to zero, and the reason it is
-worth stating in advance is that revision 6 proved how easily that number lies. No two of revision 6's
-six findings were a contract violation — every one was the guard measuring a volume that was not the one
-it meant to, or a prop placed before the thing it landed on:
+**Revision 7, measured.** The prediction above was wrong. Revision 7's first live run reported
+**13 pair(s) over 0.25 studs — not zero** — though not one of revision 6's six survived: the `S`-scale
+fix (D-039) cleared the archive and booth rings out of the gallery struts for good. The 13 were all
+new, and three defects produced every one of them:
+
+| Reported (rev 7) | What it actually was | Fix (rev 8) |
+| --- | --- | --- |
+| 11 pairs: `Desk_4`/`DeskLeg`/`Typewriter`/`DeskLamp` into `Booth_03`'s parts, `BarrierPost_1`/`BarrierBase_1` into `BoothPanel_05` | the guard clears against what already exists, and the booths were built *after* the clutter had settled: `Desk_4`'s authored spot (29.7, 29.7) is booth 03's own position on the radius-41 ring, so the booth was constructed over a desk that had no reason to move | `votingBooths`/`archiveVault` now run between the keep-out reservations and the clutter (D-042) |
+| `VaultFrame_1`/`VaultShelf_1` into `LootPad_3` by 0.29 | the vault's settle footprint was 3.6 studs square while the shelf it builds is 6.4 wide and faces the dais — up to 1.4 studs of shelf overhung the cleared box, inside `GUARD_MARGIN`, invisible to the guard | the footprint is now 6.5 square, covering the 6.4x2.6 shelf at every facing in the arc |
+| `MarqueeBack into ClockFace` by 0.50 | the clock, for the third time: a cylinder's flat axis is its local X, and the quarter-turn about Z stands a disc *upright* — but a wall clock needs the disc *vertical*, facing out of the wall. This one lay flat like a 9-stud plate at y=35, reaching 4.5 studs off the north wall and straight through the marquee's plane. Three marquee fixes never killed the pair because the marquee was never the bug | rotated about Y instead; the disc now hangs like a clock, 3.1 studs clear of the sign's back plane (D-043) |
+
+The same run's other numbers: sightlines **58% / 81% (1.38x)** — more pairs blocked at round start than
+revision 6's 52%, because the booths and archive now sit mid-field where they intercept chest-height
+rays, which also compresses the ratio. Budget unchanged (1352 parts, 369 transformables), spawns 0
+blocked, all 58 markers silent. And the round data finally shows the shape the arena is built for:
+**41.9s elimination among eight combatants**, then 19.0s and 6.2s — the >30s goal met organically, not
+by a timer.
+
+**Revision 8** is the fix revision: landmarks before clutter, an honest vault footprint, a clock that
+stands up. One more Play reports whether the count reads zero.
 
 Re-measure rather than trust any of this: `ArenaProbe.logReport` prints all of it on any Play.
 
@@ -291,13 +307,11 @@ on, alive and out of play.
   they do not vote, they do not loot, and nothing about how the game *feels* is measurable against
   them. Since D-037 a Studio Play fills the lobby to eight on its own, which makes a round worth
   watching — it does not make it a playtest.
-* **Revision 6 has not been through a Play session; revision 5 has.** Revision 5's run is where every
-  number above comes from, and it is the run that closed 112 of the 118 overlaps. Revision 6's changes
-  (the barrier footprint, the archive's grazed strut, the press on the dais, and the probe's rotated
-  extents) are verified by arithmetic and the structure check, not by the engine — the next Play is what
-  turns them into measurements. Expect the overlap count to read 0, and treat that as the signal that
-  the guard is now measuring the right volumes: three of the last six findings were the guard
-  measuring half of a barrier line.
+* **Revision 8 has not been through a Play session; revision 7 has.** Revision 7's run is measured
+  above: 13 pairs, three causes, all fixed. Revision 8's changes — landmarks before the clutter, the
+  vault's honest footprint, the clock standing on the wall — are verified by arithmetic and the
+  structure check, not by the engine. Expect the overlap count to read 0, and treat anything else as
+  the guard or the probe reporting a placement the fix missed.
 * **The placement guard moves props, and it does not know what looks good.** Seventeen props go through
   it. It keeps wall furniture against its wall and it logs every move, but a designer's composition is
   not one of its inputs — the authored coordinate is simply its first candidate.

@@ -62,7 +62,7 @@ local BuildFoundry = {}
 --! differ from. Scripts have `tests/sync_audit.py` for exactly this; generated geometry needs its
 --! own stamp. `Bootstrap` compares the stamp against this number in Studio and rebuilds on a
 --! mismatch, so pressing Play always tests the hall this source describes.
-BuildFoundry.Revision = 7
+BuildFoundry.Revision = 8
 
 -- --------------------------------------------------------------------------------------- scale
 -- All in studs. These are the design's tuning knobs; change one and re-run the validator.
@@ -822,11 +822,19 @@ local function clerkBox(parent: Instance)
 
 	-- The clock: every institution has one, and it is the closest thing to a hero prop that is still
 	-- just plates. Hands are fixed at a deliberately absurd time.
+	--
+	-- A cylinder's flat axis is its local X, so `Angles(0, 0, pi/2)` — the upright turn every other
+	-- cylinder in this file correctly uses — stood this disc HORIZONTAL, a 9-stud plate at y=35 poking
+	-- 4.5 studs off the wall: through the north partition's inner face and straight through the
+	-- marquee's plane. That is the real reason `MarqueeBack into ClockFace` survived three marquee
+	-- fixes (rev 5, 6 and 7 moved the sign; the clock was the bug). `Angles(0, pi/2, 0)` turns the
+	-- disc's thickness onto the Z axis so it hangs on the wall like a clock, and 1.6 studs off the
+	-- wall (not 1.2) keeps its rim half a stud clear of the partition's inner face.
 	part({
 		Name = "ClockFace",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.6, 9, 9),
-		CFrame = CFrame.new(0, deckY + 20, wallZ + 1.2) * CFrame.Angles(0, 0, math.pi / 2),
+		CFrame = CFrame.new(0, deckY + 20, wallZ + 1.6) * CFrame.Angles(0, math.pi / 2, 0),
 		Color = PAPER,
 		Material = Enum.Material.Marble,
 		Tags = { Tags.Static },
@@ -834,7 +842,7 @@ local function clerkBox(parent: Instance)
 	part({
 		Name = "ClockHand",
 		Size = Vector3.new(0.4, 3.4, 0.5),
-		CFrame = CFrame.new(0, deckY + 20.8, wallZ + 1.6) * CFrame.Angles(0, 0, 0.4),
+		CFrame = CFrame.new(0, deckY + 20.8, wallZ + 2.2) * CFrame.Angles(0, 0, 0.4),
 		Color = INK,
 		Material = Enum.Material.Metal,
 		Decor = true,
@@ -843,7 +851,7 @@ local function clerkBox(parent: Instance)
 	part({
 		Name = "ClockHand",
 		Size = Vector3.new(0.4, 5, 0.5),
-		CFrame = CFrame.new(0.3, deckY + 19.4, wallZ + 1.6) * CFrame.Angles(0, 0, -0.9),
+		CFrame = CFrame.new(0.3, deckY + 19.4, wallZ + 2.2) * CFrame.Angles(0, 0, -0.9),
 		Color = INK,
 		Material = Enum.Material.Metal,
 		Decor = true,
@@ -1486,7 +1494,15 @@ local function archiveVault(parent: Instance)
 		-- inside 37.3..44.2, which is the free band.
 		local position = settle(
 			Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius),
-			Vector3.new(3.6, 6.35, 3.6),
+			-- 6.5 square, not 3.6: the shelf this unit builds is 6.4 wide on a unit that faces the
+			-- dais, so its world-axis extent swings with the facing — up to (6.4+2.6)/sqrt(2) = 6.36
+			-- at 45 degrees. The old 3.6-wide footprint cleared a blob half the width of the thing it
+			-- placed, so a "settled" unit could carry 1.4 studs of overhanging shelf into a loot pad:
+			-- the `VaultFrame/Shelf into LootPad_3` pair at 0.29, inside GUARD_MARGIN where the guard
+			-- could not see it. 6.5 covers the shelf at every facing in this arc, still clears the
+			-- colonnade column at 112.5 degrees (needs 8.15 on an axis, has 8.5) and slides at most
+			-- two steps clear of the mid-ring pads.
+			Vector3.new(6.5, 6.35, 6.5),
 			"Vault_" .. index,
 			true,
 			1.5,
@@ -2130,11 +2146,11 @@ function BuildFoundry.build(): Model
 	-- In front of the buttresses, not in the wall: the ribs project 4.5 studs further into the hall than
 	-- the wall's own face, so a marquee set flush with the wall was buried inside three of them.
 	--
-	-- 2.0 studs clear of them, not 1.2: the Clerk's box clock hangs on the same wall and its 9-stud
-	-- disc reaches 4.5 studs off the wall face, which left the sign's back plane 0.05 studs *inside* the
-	-- clock's rim. The sign cannot simply go higher — the clock is at y 35 and the sign's blocky letters
-	-- occupy 30.5..37.5 — so it moves outward instead: 0.75 studs of air, and still 1.75 studs in front
-	-- of the tallest rib.
+	-- 2.0 studs clear of them, not 1.2: the Clerk's box clock hangs on the same wall. It used to reach
+	-- 4.5 studs off the wall face — its disc was rotated about the wrong axis and lay flat, which is
+	-- what the 0.75-stud clearance here was sized against — see the clock's own comment. Upright, the
+	-- disc spans z -62.7..-62.1 and this sign's back plane sits at z -65.8: 3.1 studs of air, and still
+	-- 1.75 studs in front of the tallest rib.
 	local ribFace = -SHELL_HALF + 1 + (SHELL_THICKNESS + 4.5) / 2
 	local marqueeFace = CFrame.new(0, 34, ribFace + 2) * CFrame.Angles(0, 0, 0)
 	part({
@@ -2251,6 +2267,15 @@ function BuildFoundry.build(): Model
 			"Loot_Wall" .. index
 		)
 	end
+	-- Landmarks next, AFTER the reservations but BEFORE anything that slides: `settle` clears against
+	-- what already exists in `occupied`, and on rev 7 every booth stood inside the desks, barriers and
+	-- cabinets that had already slid into the floor the booths were about to claim — 12 of the 13
+	-- reported pairs, all because the guard ran before the thing it needed to avoid existed. The
+	-- vault units settle themselves, so they also need the keep-outs above already registered, or the
+	-- guard would be blind to the pads while choosing their ground.
+	votingBooths(props)
+	archiveVault(props)
+
 	-- The west wall, just north of centre; local +X runs along the wall, local -Z faces the wall.
 	recordsCounter(Vector3.new(-(HALF - 4.6), 0, -8 * S), math.pi / 2, props)
 	stampPress(props)
@@ -2397,10 +2422,8 @@ function BuildFoundry.build(): Model
 	-- Landmarks first, among the keep-outs above and before anything that slides out of the way. The
 	-- order is the whole reason the guard converges: a prop that settles near the end of `build` is
 	-- moved by everything built before it, and something built after it lands on whatever it chose.
-	-- These two used to be placed last and were slid into gallery struts and a vending machine by
-	-- other props' decisions.
-	votingBooths(props)
-	archiveVault(props)
+	-- These two are placed above, before the clutter, so the guard's search sees them. What follows
+	-- is detail that may slide, and nothing below may land on a booth or a vault unit.
 	queueRopes(props)
 	busts(props)
 	paperChutes(props)

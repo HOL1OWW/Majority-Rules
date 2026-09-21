@@ -996,3 +996,42 @@ translation was a standing source of wrong paths in docs, tasks and comments.
 every doc, config and comment had to move in the same commit or the reference rot begins. The old
 `src/` name must never be recreated — a fresh `git clone` of a pre-D-041 revision syncs correctly
 only until the project file and the directories disagree.
+
+---
+
+### D-042 — Landmarks are built before the clutter, not after
+
+**Status:** accepted · **Date:** 2026-09-21
+
+`votingBooths` and `archiveVault` are called after the keep-out reservations and before the settling
+clutter in `build`. On rev 7 they were built last, so the desks, barriers and cabinets had already
+settled into the floor the booths were about to claim — 12 of the 13 overlaps the probe reported on
+the rev-7 run, including a desk at booth 03's own position. The code now does what its comment always
+claimed ("landmarks first").
+
+**Why:** `settle` clears against what already exists in `occupied`; it cannot avoid a thing that does
+not exist yet. D-040's reserve-then-place prediction came true, and the fix is the cheapest form of
+it: the guard never needed to be a solver, it needed the world to exist before it searched.
+
+**Cost:** the booths and vault units no longer slide away from a colliding prop — they are
+authoritative. A prop that cannot clear them reports "no clear ground" and stays put; that is the
+correct failure, because the fix for it is editing the prop's authored spot, not moving a landmark.
+
+---
+
+### D-043 — A cylinder's flat axis is its local X; standing a disc up and facing it out of a wall are different turns
+
+**Status:** accepted · **Date:** 2026-09-21
+
+The Clerk's box clock used `CFrame.Angles(0, 0, pi/2)` on its cylinder face — the turn every other
+cylinder in the file uses to stand a disc *upright* (axis vertical: posts, wheels, trunks). A wall
+clock needs the disc *vertical and facing out of the wall*, which is `Angles(0, pi/2, 0)`. The clock
+has therefore been a horizontal 9-stud plate at y=35 since it was authored, poking 4.5 studs off the
+north wall — through the marquee.
+
+**Why:** `MarqueeBack into ClockFace` survived three fixes across revisions 5, 6 and 7, each moving
+the marquee. The pair was real every time; the marquee was never the bug. The probe's rotated-extents
+math was correct — it was faithfully measuring a disc that really was horizontal.
+
+**Cost:** the clock hands moved out 0.6 studs to sit in front of the upright disc. Nothing else uses
+the wrong-axis idiom — every cylinder was checked by hand.
