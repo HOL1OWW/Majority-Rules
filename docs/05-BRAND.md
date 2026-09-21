@@ -71,7 +71,7 @@ modifier is just another checkbox on a form.**
 | Mobility | `#5FE1E1` | Category |
 | Vision | `#9AA4B8` | Category |
 
-These are mirrored in `src/client/UI/Theme.lua` — that file is the implementation, this table is
+These are mirrored in `StarterPlayer/StarterPlayerScripts/MajorityRulesClient/UI/Theme.lua` — that file is the implementation, this table is
 the intent. Change both or neither.
 
 ## Type

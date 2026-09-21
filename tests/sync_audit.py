@@ -2,8 +2,10 @@
 """
 Is the place in Roblox Studio running exactly the scripts that are in this repository?
 
-The place and `src/` are two copies of the same ~64 modules, and they drift silently. A script
-edited in Studio without Ctrl+S never existed anywhere else. A `.lua` file added under `src/` in a
+The place and the code directories are two copies of the same ~64 modules, and they drift
+silently. A script
+edited in Studio without Ctrl+S never existed anywhere else. A `.lua` file added outside a mapped
+directory in
 directory the project file does not map is never synced. A script created in Studio has no file at
 all. In every one of those cases the game runs something the repository cannot account for, and the
 symptom is a fix that "does not work" even though the code is correct.
@@ -21,7 +23,7 @@ Usage — the place is only readable from inside Studio, so there are two halves
 disagree, 0 means they agree, so it works as a check.
 
 The instance paths are derived from `default.project.json` rather than hard-coded, so moving
-`src/shared` somewhere else in the tree does not silently break the audit.
+`ReplicatedStorage/Shared` somewhere else in the tree does not silently break the audit.
 """
 
 import argparse
@@ -124,10 +126,13 @@ def repo_scripts(root, project_path):
 
 
 def unmapped_scripts(root, mapped_dirs):
-    """Scripts under src/ that the project file would never sync."""
-    source_dir = os.path.join(root, "src")
+    """Script files under the code directories that the project file would never sync."""
+    source_dirs = (
+        "ReplicatedStorage", "ServerScriptService", "ServerStorage", "StarterPlayer",
+    )
     found = []
-    for base, _dirs, names in os.walk(source_dir):
+    for source_dir in source_dirs:
+      for base, _dirs, names in os.walk(os.path.join(root, source_dir)):
         base = os.path.normpath(base)
         if any(base == mapped or base.startswith(mapped + os.sep) for mapped in mapped_dirs):
             continue

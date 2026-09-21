@@ -29,7 +29,7 @@
 			"label": "structure check (awk)",
 			"detail": "The temporary Luau structure check, until luau-lsp analyze is wired up.",
 			"type": "shell",
-			"command": "for f in $(find src -name '*.lua'); do awk -f tests/syntax_check.awk \"$f\"; done",
+			"command": "for f in $(find ReplicatedStorage ServerScriptService ServerStorage StarterPlayer -name '*.lua'); do awk -f tests/syntax_check.awk \"$f\"; done",
 			"options": { "cwd": "${workspaceFolder}" },
 			"problemMatcher": []
 		},

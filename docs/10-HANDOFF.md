@@ -29,7 +29,7 @@ player" as the way to exercise combat.
 **The loadout leak was real, and is fixed.** D-026 said there was no carry-over; a round that voted
 `PistolsOnly` followed by a round that voted for anything else proved there was — every later round
 handed out pistols, because `CombatService.resetRound` never restored the default loadout that its two
-siblings (`LootService.reset`, `GameplayService.reset`) both restored. `src/server/Dev/LoadoutCheck.lua`
+siblings (`LootService.reset`, `GameplayService.reset`) both restored. `ServerScriptService/MajorityRulesServer/Dev/LoadoutCheck.lua`
 fails loudly on it after every transform and now passes; D-027 has the before/after logs.
 
 **The reference arena was redesigned, against a gate that now actually measures things.** The contract's
@@ -206,7 +206,7 @@ coordinates are one table in `BuildFoundry`.
 2. **Build the Clerk** — the mascot, per `docs/05-BRAND.md`. It is the face of the brand and the
    loudest thing missing from the pitch.
 3. **Arenas 2 and 3**, against `docs/01-ARENA-CONTRACT.md`. One arena is a demo; three is a game. The
-   brief for map contributors is `docs/08-MAP-AI-BRIEF.md`, and `src/server/Dev/BuildFoundry.lua` is the
+   brief for map contributors is `docs/08-MAP-AI-BRIEF.md`, and `ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua` is the
    worked example to copy — it passes the validator and says why every number is what it is.
 4. **Judge the redesigned arena with real players.** Two open questions, both measured and deliberately
    left to a playtest (`docs/13-ARENA-DESIGN.md`): the eight aligned fire lanes that survive cover, and

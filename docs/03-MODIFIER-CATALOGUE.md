@@ -1,7 +1,7 @@
 # Modifier catalogue
 
 **Implemented: 23.** Target for launch: 40+. Every row is one file in
-`src/shared/Modifiers/TierN/`.
+`ReplicatedStorage/Shared/Modifiers/TierN/`.
 
 Legend: **T** = tier · **W** = draw weight · **Req** = required arena feature ·
 **Conflicts** = cannot be drawn alongside.

@@ -7,7 +7,8 @@ It is not a parser. It catches the class of mistake that actually happens when w
 by hand and by machine: unbalanced `function/if/for/while/do/end/repeat/until`, unbalanced
 brackets, unterminated strings and unterminated long strings/comments.
 
-    python tests/syntax_check.py src
+    python tests/syntax_check.py            (defaults to the four code directories)
+    python tests/syntax_check.py SomeDir
 """
 
 import os
@@ -151,12 +152,15 @@ def check(path):
 
 
 def main():
-    root = sys.argv[1] if len(sys.argv) > 1 else "src"
+    roots = sys.argv[1:] or (
+        "ReplicatedStorage", "ServerScriptService", "ServerStorage", "StarterPlayer",
+    )
     files = []
-    for directory, _dirs, names in os.walk(root):
-        for name in sorted(names):
-            if name.endswith(".lua"):
-                files.append(os.path.join(directory, name))
+    for root in roots:
+        for directory, _dirs, names in os.walk(root):
+            for name in sorted(names):
+                if name.endswith(".lua"):
+                    files.append(os.path.join(directory, name))
 
     failures = 0
     for path in sorted(files):

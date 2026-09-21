@@ -86,7 +86,7 @@ revert is a model nobody can safely improve.
 
 You can work entirely in Studio, but understand what you lose: no diffs, no review, no rollback,
 and no way for several authors to work at once. If Rojo genuinely will not work for someone,
-they work on **arena models only** (`assets/arenas/*.rbxmx`) and never on `src/`.
+they work on **arena models only** (`assets/arenas/*.rbxmx`) and never on the code directories (ReplicatedStorage, ServerScriptService, ServerStorage, StarterPlayer).
 
 ---
 
@@ -94,9 +94,9 @@ they work on **arena models only** (`assets/arenas/*.rbxmx`) and never on `src/`
 
 | Area | Paths | Owner |
 | --- | --- | --- |
-| Systems | `src/server/**`, `src/client/**`, `src/shared/Config/**`, `src/shared/Net.lua`, `src/shared/Types.lua` | Systems track |
-| Modifiers | `src/shared/Modifiers/TierN/*.lua` | Any contributor — **one file at a time, one author per file** |
-| Contract | `src/shared/Tags.lua`, `src/tools/**` | Frozen — changes need a `DECISIONS.md` entry |
+| Systems | `ServerScriptService/MajorityRulesServer/**`, `StarterPlayer/StarterPlayerScripts/MajorityRulesClient/**`, `ReplicatedStorage/Shared/Config/**`, `ReplicatedStorage/Shared/Net.lua`, `ReplicatedStorage/Shared/Types.lua` | Systems track |
+| Modifiers | `ReplicatedStorage/Shared/Modifiers/TierN/*.lua` | Any contributor — **one file at a time, one author per file** |
+| Contract | `ReplicatedStorage/Shared/Tags.lua`, `ServerStorage/Tools/**` | Frozen — changes need a `DECISIONS.md` entry |
 | Arenas | `assets/arenas/*.rbxmx` | Map track — one arena per author |
 | Kits | `assets/kits/**` | Map track — one kit per author |
 | Brand assets | `assets/brand/**` | Brand track |
@@ -170,7 +170,7 @@ verifies block and bracket balance. It is not a parser, and it exists only becau
 toolchain had not been installed yet.
 
 ```bash
-for f in $(find src -name '*.lua'); do awk -f tests/syntax_check.awk "$f"; done
+for f in $(find ReplicatedStorage ServerScriptService ServerStorage StarterPlayer -name '*.lua'); do awk -f tests/syntax_check.awk "$f"; done
 ```
 
 Once StyLua, Selene and Luau LSP are added to `aftman.toml`, the real checks are `luau-lsp analyze`
@@ -239,7 +239,7 @@ exists to prevent.
 
    If you do run it, the check that settles arguments is to hash both sides: run a Luau loop over the
    four mapped services summing `djb2` of every `Script.Source`, and compare with the same `djb2`
-   computed over `src/**/*.lua` in bash. Identical totals mean the place and the repo really agree,
+   computed over the code directories' `.lua` files in bash. Identical totals mean the place and the repo really agree,
    which is how the "my edit vanished" question was answered here.
 2. **Studio's native Script Sync** — Roblox's own feature, now in full release, two-way and resumed
    automatically when the place reopens. Right-click a Folder of scripts → *Sync with Directory…*.

@@ -16,7 +16,7 @@ holds the game:
 | Folder | What it is | Verdict |
 | --- | --- | --- |
 | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo: 64 Luau modules, 23 modifiers, 10 documents, `default.project.json`. No commits yet. | **This is the project.** Rojo must serve from here. |
-| `C:\Users\selab\Majority-Rules` | a `git clone` of `github.com/HOL1OWW/Majority-Rules` holding an untouched `rojo init` skeleton — `src/shared/Hello.luau`, `GameFiles`, and a `default.project.json` that still says `MY_GAMES_NAME_HERE_THIS_CAN_BE_ANYTHING`. | serves nothing. Delete once the real repo is on GitHub. |
+| `C:\Users\selab\Majority-Rules` | a `git clone` of `github.com/HOL1OWW/Majority-Rules` holding an untouched `rojo init` skeleton — `ReplicatedStorage/Shared/Hello.luau`, `GameFiles`, and a `default.project.json` that still says `MY_GAMES_NAME_HERE_THIS_CAN_BE_ANYTHING`. | serves nothing. Delete once the real repo is on GitHub. |
 | `C:\Users\selab\OneDrive\Documents\GitHub\Majority Rules` | a second checkout of the same GitHub repo: LICENSE, README, `main.luau`, `.idea`. No game code. | redundant. Delete. |
 
 Already installed and verified on this machine:
@@ -177,7 +177,7 @@ with cards, you cast a vote, the winner is stamped, the arena transforms, and th
 has been structurally checked but never executed. The first Play will probably surface a handful
 of real bugs — a wrong property, a nil index, a bad require path. That is a normal first
 playtest, not a failure. The rule that makes it fast to fix: **every log line in the game goes
-through `src/shared/Util/Log.lua`**, so anything in the Output window is worth reading.
+through `ReplicatedStorage/Shared/Util/Log.lua`**, so anything in the Output window is worth reading.
 
 When you hit one, tell me the exact red text and I'll fix it.
 

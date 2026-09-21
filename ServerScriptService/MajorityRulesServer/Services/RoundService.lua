@@ -537,7 +537,7 @@ local function runRound(roundNumber: number, rng: Random)
 	-- A loadout that outlives its round looks exactly like the game working, so this compares the
 	-- tools in hand against the round's own loadout rather than trusting the absence of errors.
 	-- Never fatal unless DevConfig.StrictLoadoutCheck says so — a report must not break the round
-	-- it describes. See src/server/Dev/LoadoutCheck.lua.
+	-- it describes. See ServerScriptService/MajorityRulesServer/Dev/LoadoutCheck.lua.
 	if RunService:IsStudio() then
 		-- Dev is a sibling of Services, and a failed require here is worth knowing about: a check
 		-- that silently never runs is worse than the bug it is looking for.

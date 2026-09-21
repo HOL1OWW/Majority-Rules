@@ -52,5 +52,5 @@ is the whole reason this export matters — today the real Foundry geometry has 
   re-exported. Two-way editing of one model is exactly the drift this repository is built to avoid.
 
 Until that decision is made, keep the export fresh after any significant geometry change, and
-treat `BuildFoundry` (`src/server/Dev/BuildFoundry.lua`) as what it is: a gray-box placeholder that
+treat `BuildFoundry` (`ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua`) as what it is: a gray-box placeholder that
 only builds when `ServerStorage.Arenas` is empty, so a fresh place still has something to play on.

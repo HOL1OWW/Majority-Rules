@@ -26,7 +26,7 @@ These exist because three humans and several AI agents work in this repo at the 
    new capability, add it to `ArenaService` and document it in `docs/02-MODIFIER-API.md`.
 3. **The map and the script communicate only through CollectionService tags and Attributes.**
    Never reference an arena part by name, and never by path. All tag and attribute names are
-   declared once in `src/shared/Tags.lua`.
+   declared once in `ReplicatedStorage/Shared/Tags.lua`.
 4. **No arena model contains a Script.** Arena models are geometry, tags and attributes only.
 5. **Every arena passes `ArenaValidator` before merge.** No exceptions, human or AI.
 6. **`main` must always be playable** — boot, vote, transform, complete a round.
@@ -40,9 +40,9 @@ These exist because three humans and several AI agents work in this repo at the 
 
 | Area | Paths | Owner |
 | --- | --- | --- |
-| Systems (code) | `src/server/**`, `src/client/**`, `src/shared/Config/**`, `src/shared/Net.lua`, `src/shared/Types.lua` | Systems track |
-| Modifiers | `src/shared/Modifiers/**` | One file per modifier — any contributor, one modifier at a time |
-| Contract | `src/shared/Tags.lua`, `src/tools/**` | Frozen — change requires a `DECISIONS.md` entry |
+| Systems (code) | `ServerScriptService/MajorityRulesServer/**`, `StarterPlayer/StarterPlayerScripts/MajorityRulesClient/**`, `ReplicatedStorage/Shared/Config/**`, `ReplicatedStorage/Shared/Net.lua`, `ReplicatedStorage/Shared/Types.lua` | Systems track |
+| Modifiers | `ReplicatedStorage/Shared/Modifiers/**` | One file per modifier — any contributor, one modifier at a time |
+| Contract | `ReplicatedStorage/Shared/Tags.lua`, `ServerStorage/Tools/**` | Frozen — change requires a `DECISIONS.md` entry |
 | Arenas (models) | `assets/arenas/**` | Map track, one arena per contributor |
 | Arena kits | `assets/kits/**` | Map track, one kit per contributor |
 | Brand assets | `assets/brand/**` | Brand track |
@@ -52,14 +52,14 @@ These exist because three humans and several AI agents work in this repo at the 
 
 ## Adding a modifier (the most common task)
 
-1. Copy `src/shared/Modifiers/_template.lua` into `Tier1/`, `Tier2/` or `Tier3/`.
+1. Copy `ReplicatedStorage/Shared/Modifiers/_template.lua` into `Tier1/`, `Tier2/` or `Tier3/`.
 2. Rename the file to the modifier `Id`. The registry auto-loads every `.lua` in `Tier*/`;
    files starting with `_` are ignored.
 3. Fill in metadata: `Id`, `DisplayName`, `Blurb`, `Tier`, `Weight`, `Tags`, `Conflicts`,
    `Requires`, `Bans`, `Effects`.
 4. Implement your effect using **only** capabilities that already exist. Prefer declarative
    `Steps` over `Tick`.
-5. Run the boot validator (`Modifiers.validate()`) and `src/tools/ModifierSim.lua`.
+5. Run the boot validator (`Modifiers.validate()`) and `ServerStorage/Tools/ModifierSim.lua`.
 6. Add the entry to `docs/03-MODIFIER-CATALOGUE.md`.
 
 A modifier that cannot express itself with existing capabilities is a signal that the engine
@@ -97,7 +97,7 @@ on a clone, and treat a non-empty result as a bug.
 ## Is the engine running the code you think it is?
 
 Studio and the repository are two copies of the same scripts, and they drift silently: an edit made
-in Studio without Ctrl+S never exists anywhere else, a file added under an unmapped `src/` directory
+in Studio without Ctrl+S never exists anywhere else, a file added under a directory the project file does not map
 is never synced, and a script created in Studio has no file at all. Twice now that has cost an hour
 of debugging a fix that was correct but never reached the engine. Do not guess — hash both sides:
 
@@ -155,7 +155,7 @@ touched — the hash difference is the list. See `docs/07-TEAM-WORKFLOW.md` sect
 
 Remember that this covers **script source only**. Geometry, attributes and tags produce no file, and
 no Studio tool can export an instance to disk, so a hand-built arena still needs a human
-`Save to File`. An arena built by code (`src/server/Dev/BuildFoundry.lua` is one) needs nothing — it
+`Save to File`. An arena built by code (`ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua` is one) needs nothing — it
 is a script, so it publishes like any other.
 
 ---
@@ -163,7 +163,7 @@ is a script, so it publishes like any other.
 ## Conventions
 
 - Luau, typed where it helps. Tabs for indentation (StyLua default config).
-- Server services are singletons in `src/server/Services/`, each exposing `Init()`/`Start()`.
+- Server services are singletons in `ServerScriptService/MajorityRulesServer/Services/`, each exposing `Init()`/`Start()`.
 - Clients render UI as a pure function of replicated round state. No client round logic.
 - Naming: `PascalCase` files matching the module's table name; `MR` prefix on all tags.
 - Never use `wait()`, `spawn()` or `delay()` — use `task.wait`, `task.spawn`, `task.delay`.
@@ -198,7 +198,7 @@ test aid gated behind a dev flag — do not wire them into a live match path wit
 
 ## Assertions, not observations
 
-`src/server/Dev/LoadoutCheck.lua` runs after every transform in Studio and compares each player's tools
+`ServerScriptService/MajorityRulesServer/Dev/LoadoutCheck.lua` runs after every transform in Studio and compares each player's tools
 against the loadout the round actually asked for, because a per-round effect that leaks into the next
 round *looks exactly like the game working* — a gun in hand, no error, a round that runs. It found the
 loadout leak that D-027 fixes.

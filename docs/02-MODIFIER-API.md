@@ -1,6 +1,6 @@
 # Modifier API
 
-A modifier is one file in `src/shared/Modifiers/Tier1|Tier2|Tier3/`. The registry auto-loads
+A modifier is one file in `ReplicatedStorage/Shared/Modifiers/Tier1|Tier2|Tier3/`. The registry auto-loads
 every `.lua` file in those folders (files starting with `_` are skipped), so **adding a modifier
 is adding a file** — no central list, no merge conflict with another author.
 

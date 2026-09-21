@@ -13,7 +13,7 @@ Format: what we decided, why, and what it costs. Newest at the bottom.
 **Status:** frozen · **Date:** phase 0
 
 The map and the systems never reference each other's internals. All cross-team data is a
-CollectionService tag or an Attribute whose name is declared once in `src/shared/Tags.lua`. Arena
+CollectionService tag or an Attribute whose name is declared once in `ReplicatedStorage/Shared/Tags.lua`. Arena
 models contain no scripts.
 
 **Why:** three humans and several map-building AIs contribute in parallel. Any direct reference is
@@ -239,7 +239,7 @@ track fills in a table and every modifier that asked for atmosphere gets it.
 **Status:** decided · **Date:** phase 1
 
 If `ServerStorage.Arenas` is empty and we are in Studio, the bootstrap builds the Foundry arena
-(`src/server/Dev/BuildFoundry.lua`) and logs that it did.
+(`ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua`) and logs that it did.
 
 **Why:** pressing Play should always give you a game. It also produces the working example every
 map contributor and map AI copies, and it is deliberately ugly so nobody mistakes it for final art.
@@ -567,7 +567,7 @@ D-026 describes, with the correct weapon in it.
 
 **Why a check, and not just the fix.** This bug is invisible in play: everyone holds a gun, the round
 runs, nothing errors. It was found only by comparing the tools in hand against what the round asked for,
-which is now a permanent Studio-only assertion, `src/server/Dev/LoadoutCheck.lua`, called from
+which is now a permanent Studio-only assertion, `ServerScriptService/MajorityRulesServer/Dev/LoadoutCheck.lua`, called from
 `RoundService` right after the transform and the bot spawns. It compares each spawned player's actual
 `Tool` instances *and* the replicated `Loadout` attribute (as order-insensitive sets) against the round's
 expected list: `CombatService.currentLoadout()` when an applied modifier declares the `LoadoutOverride`
@@ -945,7 +945,7 @@ Both are now absolute, and both are where geometry says they fit:
   wrong: it drifts the ring out to 47.7 into the crate pads, and in to 36.3 into the colonnade.
 * **Booths at 41**, i.e. 2.9 studs off the colonnade and 3.5 off the crate pads.
 
-**A wording trap:** `src/tools/ArenaValidator.lua`'s `ClearanceRadius` doc says a loot point declares a
+**A wording trap:** `ServerStorage/Tools/ArenaValidator.lua`'s `ClearanceRadius` doc says a loot point declares a
 "radius whose circumference must be clear of cover". That is a statement about the **crate**, which
 `LootService` builds as 3x3x3 — *not* about the 7x7 marble pad under it, which the validator does not
 measure and which every loot point has stood inside since the pads were introduced. Worth knowing before
@@ -974,3 +974,25 @@ principle for contract geometry; this extends it to scenery.
 moved 24.5 studs to satisfy everything before it can violate something built after it, and the fix is
 always another pass. If overlaps appear again the answer is a two-pass build (reserve, then place) or a
 cost function — not a third `settle` call site.
+
+---
+
+### D-041 — The repository mirrors the Roblox tree, not a `src/` layout
+
+**Status:** accepted · **Date:** 2026-09-21
+
+The code directories are named after the services they sync into: `ReplicatedStorage/`,
+`ServerScriptService/` (holding `MajorityRulesServer/`), `ServerStorage/` (holding `Tools/`), and
+`StarterPlayer/StarterPlayerScripts/` (holding `MajorityRulesClient/`). `default.project.json`
+maps each one to its instance, so **instance paths are unchanged** — the place, Rojo and
+`tests/sync_audit.py` are unaffected; only disk paths moved.
+
+**Why:** the Explorer and the file tree now read the same, so "the place is the repo" is visible at
+a glance — which matters because the whole Studio-first workflow treats the two as one project.
+The old `src/{shared,server,tools,client}` layout translated in everyone's head, and the
+translation was a standing source of wrong paths in docs, tasks and comments.
+
+**Cost:** paths in prose longer (`ServerScriptService/MajorityRulesServer/Dev/` was `src/server/Dev/`);
+every doc, config and comment had to move in the same commit or the reference rot begins. The old
+`src/` name must never be recreated — a fresh `git clone` of a pre-D-041 revision syncs correctly
+only until the project file and the directories disagree.

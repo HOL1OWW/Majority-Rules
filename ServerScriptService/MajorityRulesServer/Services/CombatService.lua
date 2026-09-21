@@ -535,7 +535,7 @@ function CombatService.resetRound()
 	-- gameplay baseline (GameplayService.reset), and this is the only one of the three with nothing
 	-- restoring it. So a loadout modifier's list outlived its own round: after a PistolsOnly round,
 	-- every later round handed out pistols instead of the default, because SetDefaultLoadout had
-	-- overwritten the default that respawns read. Caught by src/server/Dev/LoadoutCheck.lua, which
+	-- overwritten the default that respawns read. Caught by ServerScriptService/MajorityRulesServer/Dev/LoadoutCheck.lua, which
 	-- failed loudly on four consecutive Fog rounds. See docs/DECISIONS.md D-027.
 	defaultLoadout = table.clone(Combat.DefaultLoadout)
 end

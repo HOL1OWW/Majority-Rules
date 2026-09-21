@@ -2,7 +2,7 @@
 
 The ramp from "one gentle twist" to "three stacked chaos modifiers" is the single biggest
 reason a match feels like a match rather than a loop of unrelated rounds. It is configured in
-`src/shared/Config/Escalation.lua` — data, not code.
+`ReplicatedStorage/Shared/Config/Escalation.lua` — data, not code.
 
 ## The rule that makes stacking work
 

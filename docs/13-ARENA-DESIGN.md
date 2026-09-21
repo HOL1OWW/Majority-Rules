@@ -1,6 +1,6 @@
 # 13 — Arena design: The Foundry
 
-The reference arena is `src/server/Dev/BuildFoundry.lua`, built into `ServerStorage.Arenas.Foundry`
+The reference arena is `ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua`, built into `ServerStorage.Arenas.Foundry`
 at boot when no arena is authored there. It is the worked example every map contributor copies: the
 brief for hand-authored arenas is `docs/08-MAP-AI-BRIEF.md`, the rulebook is
 `docs/01-ARENA-CONTRACT.md`, and anything below that contradicts the contract is a bug in this file.

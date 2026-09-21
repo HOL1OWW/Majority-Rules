@@ -5,7 +5,7 @@
 An arena is a **Model** in `ServerStorage.Arenas` that the game can find, host, transform and
 reset. It never contains a script, and no script ever references one of its parts by name.
 Everything crosses the boundary through **CollectionService tags** and **Attributes**, whose
-names are declared once in `src/shared/Tags.lua`.
+names are declared once in `ReplicatedStorage/Shared/Tags.lua`.
 
 That single rule is what lets three humans and several map-building AIs work at the same time
 without breaking the game: **the map cannot see the code, and the code cannot see the map.**
@@ -271,7 +271,7 @@ Copy this into your pull request.
 - [ ] No scripts, no unanchored geometry, `PrimaryPart` set
 - [ ] **No prop built inside another prop.** The validator cannot see this: a desk standing in a column,
       a filing bank inside a balcony leg and a crate pad under a queue barrier all pass every rule above.
-      `src/server/Dev/ArenaProbe.lua` reports the pairs from a Play session, and `BuildFoundry` avoids
+      `ServerScriptService/MajorityRulesServer/Dev/ArenaProbe.lua` reports the pairs from a Play session, and `BuildFoundry` avoids
       them by placing props through `settle` rather than at hand-solved coordinates (D-034). Generated
       arenas get this for free; a hand-authored one needs the probe.
 - [ ] A `Cylinder` part's axis is its **local X**, so an upright post or bottle needs

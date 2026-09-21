@@ -6,14 +6,14 @@
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
-        "$path": "src/shared"
+        "$path": "ReplicatedStorage/Shared"
       }
     },
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "MajorityRulesServer": {
-        "$path": "src/server"
+        "$path": "ServerScriptService/MajorityRulesServer"
       }
     },
 
@@ -24,7 +24,7 @@
         "$ignoreUnknownInstances": true
       },
       "Tools": {
-        "$path": "src/tools"
+        "$path": "ServerStorage/Tools"
       }
     },
 
@@ -39,7 +39,7 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "MajorityRulesClient": {
-          "$path": "src/client"
+          "$path": "StarterPlayer/StarterPlayerScripts/MajorityRulesClient"
         }
       }
     },
