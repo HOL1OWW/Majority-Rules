@@ -1084,3 +1084,43 @@ is visible in Properties, self-documenting, and costs Bootstrap one `if`.
 **Consequences.** The handoff's two-audience split (§9.1) is now: generator for systematic change,
 frozen hall for designer-time change. `GeneratorRevision` stamps on a frozen arena are informational
 only. Doc 7 §9.1 documents the workflow.
+
+### D-046 — Base speed 22, and sprint as a server-owned multiplier
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** WalkSpeed 16 was tuned for a 128-stud interior hall. The arenas are becoming massive
+(the Colosseum floor is a 180-stud disc); at 16 studs/s crossing it takes ~11 s and the game feels
+slow. Players also asked for sprint, and naive client-side sprint (writing Humanoid.WalkSpeed from
+a LocalScript) is a cheat vector and ignores modifiers.
+
+**Decision.** `Combat.WalkSpeed = 22`. Sprint is a **multiplier (1.5x) on the round baseline**,
+owned by `GameplayService` as a server Heartbeat state machine with per-player stamina
+(100 max, 14/s drain ≈ 7 s, 9/s regen, lockout below 20 until 40). The client (`SprintController`)
+only fires `Net.SprintInput(sprinting)` and renders a *guessed* stamina bar; the server decides.
+Because the multiplier applies to whatever the baseline currently is, modifiers compose for free:
+Sluggish sprint (11 × 1.5 = 16.5) is still slower than a plain post-patch walk (22).
+Bots burst-sprint while chasing or fleeing (1.2–2.0 s windows) so playtests stay honest.
+
+**Consequences.** Modifier walk-speed values (SpeedBoost 23, Sluggish 11) now sit either side of a
+22 base rather than around 16 — they may want retuning once play-tested on the big arena. Shift is
+keyboard-only today; mobile gets a HUD button in a later pass.
+
+### D-047 — The Colosseum: a second, generator-built arena
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** The Foundry is an interior: corridors, booths, partitions. With the new 22 + sprint
+movement it reads small and busy, and the user asked for a *proper arena* — massive, open, legible.
+
+**Decision.** `Dev/BuildColosseum.lua` generates a second arena: 180-stud sand floor (disc on a
+substrate), a 48-segment drum wall at r=96 in group "Wall" (so SmallMap/ShrinkingArena pull the
+whole ring inward instead of sliding one box), 20 rising cover pieces (group "Cover", authored
+Hidden — cover appears mid-round instead of cluttering open sight lines), 48 collapsing-floor
+tiles, 12 spawns on r=70, 10 loot points (centre weighted 3), 8 vote cameras, 4 static seating
+tiers, 8 gate frames. Daylight lighting, not dusk. Both generators coexist; Bootstrap matches a
+place arena to its builder **by name**, and the fallback build is now the Colosseum.
+
+**Consequences.** The frozen hand-authored Foundry stays playable and untouched; arena choice is
+weighted (`Colosseum` Weight 20 vs Foundry's default 10, so ~2:1). Scaling a ring from the centre
+is the pattern future big arenas should follow for every group a shrink modifier touches.

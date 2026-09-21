@@ -13,6 +13,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Combat = require(Shared.Config.Combat)
@@ -29,6 +30,75 @@ local baseline = {
 	MaxHealth = Combat.Health,
 	FrictionScale = 1,
 }
+
+--! Sprint. The client only *asks* (Net.SprintInput); this service owns the state machine: whether
+--! sprint is active is decided here from server-tracked stamina, so a cheater's humanoid never
+--! moves faster than the round rules allow. Stamina lives per player, survives respawns, and the
+--! multiplier applies to whatever the round baseline currently is — so Sluggish sprinting is
+--! still slower than a plain walk, and SpeedBoost sprinting is faster still.
+local sprint = {} -- [Player] = { Requesting, Stamina, Active, Locked }
+local sprintConnection: RBXScriptConnection? = nil
+
+local function sprintDefaults()
+	return { Requesting = false, Stamina = Combat.SprintStaminaMax, Active = false, Locked = false }
+end
+
+local function sprintTick(dt: number)
+	for player, state in sprint do
+		if not player.Parent then
+			sprint[player] = nil
+			continue
+		end
+		if state.Active then
+			state.Stamina = math.max(0, state.Stamina - Combat.SprintDrainPerSecond * dt)
+			if state.Stamina <= 0 then
+				state.Active = false
+				state.Locked = true
+			end
+		else
+			state.Stamina = math.min(Combat.SprintStaminaMax, state.Stamina + Combat.SprintRegenPerSecond * dt)
+			if state.Locked and state.Stamina >= Combat.SprintResetThreshold then
+				state.Locked = false
+			end
+		end
+
+		local wants = state.Requesting and not state.Locked and state.Stamina > Combat.SprintMinStamina
+		if wants ~= state.Active then
+			state.Active = wants
+			local humanoid
+			local character = player.Character
+			humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				GameplayService.applyBaseline(player)
+			end
+		end
+	end
+end
+
+--! Called once from Bootstrap, before the first spawn.
+function GameplayService.setup()
+	if sprintConnection then
+		return
+	end
+	sprintConnection = RunService.Heartbeat:Connect(sprintTick)
+	Players.PlayerRemoving:Connect(function(player)
+		sprint[player] = nil
+	end)
+	Log.info("GameplayService: sprint online (%.1fx, drain %.0f/s)", Combat.SprintMultiplier, Combat.SprintDrainPerSecond)
+end
+
+--! Client asks; the state machine decides. Rate limiting is unnecessary: the payload is one
+--! boolean and the handler is idempotent.
+function GameplayService.requestSprint(player: Player, wants: any)
+	local state = sprint[player] or sprintDefaults()
+	state.Requesting = wants == true
+	sprint[player] = state
+end
+
+--! Current sprint state for one player, for HUD/telemetry reads.
+function GameplayService.sprintState(player: Player)
+	return sprint[player]
+end
 
 --! Per-player overrides (a modifier may target one player, e.g. a future Juggernaut).
 local overrides = {}
@@ -68,6 +138,20 @@ local function resolve(player: Player?)
 	return baseline
 end
 
+--! The rules one player runs under right now: the round baseline (or override), plus the sprint
+--! multiplier if that player's sprint state machine says they are sprinting. Returns a copy when
+--! sprinting so the multiplier never leaks into the shared baseline table.
+local function effectiveSettings(player: Player?)
+	local settings = resolve(player)
+	local state = player and sprint[player]
+	if state and state.Active then
+		local effective = table.clone(settings)
+		effective.WalkSpeed = settings.WalkSpeed * Combat.SprintMultiplier
+		return effective
+	end
+	return settings
+end
+
 local function applyJump(humanoid: Humanoid, settings)
 	pcall(function()
 		humanoid.UseJumpPower = true
@@ -103,13 +187,15 @@ local function applySettings(character_: Model, settings)
 	end
 end
 
---! Push the current rules onto one character. Called on every spawn and after every transform.
+--! Push the current rules onto one character. Called on every spawn, after every transform, and
+--! whenever the sprint state machine flips. Bots never sprint as players do — BotService decides
+--! their bursts itself.
 function GameplayService.applyBaseline(player: Player, character: Model?)
 	local character_ = character or player.Character
 	if not character_ then
 		return
 	end
-	applySettings(character_, resolve(player))
+	applySettings(character_, effectiveSettings(player))
 end
 
 --! The same rules for a bot: it has no Player, so it follows the round baseline — which means

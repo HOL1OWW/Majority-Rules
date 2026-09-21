@@ -31,6 +31,12 @@ detection: a model in `Arenas` with no repo file is reported as `ONLY IN STUDIO`
 to export it). While frozen, code changes to `BuildFoundry.lua` do **not** reach the hall — unset
 `HandAuthored` and the next Play rebuilds from source. See doc 7 §9.1 for the full workflow.
 
+**Speed and scale changed on 2026-09-22 (D-046, D-047).** Base WalkSpeed is 22 and **sprint exists**:
+Shift, server-authoritative through `GameplayService`'s stamina state machine (client only sends
+`Net.SprintInput`; `SprintController` renders a guessed bar). The **Colosseum** is a second arena —
+a 180-stud open sand floor, drum wall that shrinking modifiers crush inward, rising cover — built by
+`Dev/BuildColosseum.lua` and now the fallback build. The hand-authored Foundry still works as-is.
+
 **Bots exist now** — `BotService`, Studio-only behind `DevConfig.BotCount`, so a round can be played
 and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second
 player" as the way to exercise combat. Since D-044 they fight like bodies, not turrets: bot shots

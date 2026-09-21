@@ -245,7 +245,11 @@ local function tickBot(model: Model, state)
 	end
 
 	-- Round rules reach bots too. Re-read every tick so a transform that lands mid-round applies.
-	humanoid.WalkSpeed = GameplayService.baseline().WalkSpeed
+	-- Sprint: a bot bursts when it is chasing (long gap, target unseen) or fleeing. Combat is close
+	-- and holding, so a burst is a *dash toward the fight*, not a permanent gallop — the timers make
+	-- it read like a player tapping sprint, and a holding bot never wastes its dash.
+	local baseSpeed = GameplayService.baseline().WalkSpeed
+	humanoid.WalkSpeed = baseSpeed
 
 	if MatchState.State ~= "Live" then
 		return
@@ -316,6 +320,18 @@ local function tickBot(model: Model, state)
 
 	local sidestepping = now < state.SidestepUntil and state.SidestepTarget ~= nil
 	local retreating = now < state.RetreatUntil
+
+	-- Sprint bursts: only meaningful while covering ground. Requires line of sight or a grudge so
+	-- a blind sprint does not outrun the information that justified it.
+	if state.SprintUntil and now >= state.SprintUntil then
+		state.SprintUntil = nil
+	end
+	local chasing = advancing and distance > ENGAGE_RANGE * 1.2
+	if not state.SprintUntil and not retreating and chasing and state.Rng:NextNumber() < 0.5 then
+		state.SprintUntil = now + 1.2 + state.Rng:NextNumber() * 0.8 -- 1.2–2.0s bursts
+	end
+	humanoid.WalkSpeed = baseSpeed * (state.SprintUntil and Combat.SprintMultiplier or 1)
+
 	if now >= state.NextRepathAt then
 		state.NextRepathAt = now + REPATH_INTERVAL
 		if sidestepping then

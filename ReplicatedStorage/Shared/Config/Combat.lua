@@ -8,9 +8,21 @@
 local Combat = {}
 
 -- Player baseline
+-- WalkSpeed 22: the arenas are large (the Colosseum's floor alone is a 150-stud radius), so the
+-- base pace has to cross them; sprint on top of that for the burst.
 Combat.Health = 100
-Combat.WalkSpeed = 16
+Combat.WalkSpeed = 22
 Combat.JumpPower = 50
+
+-- Sprint. Server-authoritative: the client only asks, this service decides. A multiplier on the
+-- round baseline so modifiers compose — Sluggish sprinting is still slower than a plain walk.
+Combat.SprintMultiplier = 1.5
+Combat.SprintStaminaMax = 100
+Combat.SprintDrainPerSecond = 14 -- about 7 seconds of full sprint from full stamina
+Combat.SprintRegenPerSecond = 9
+Combat.SprintMinStamina = 20 -- must regen above this before sprint can start again
+Combat.SprintResetThreshold = 40 -- stamina climbs back to this before another sprint is allowed
+
 Combat.ResetOnSpawn = false
 
 -- Spawning

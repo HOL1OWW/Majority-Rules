@@ -19,6 +19,7 @@ local UI = script.Parent:WaitForChild("UI")
 local State = require(Controllers.State)
 local CameraController = require(Controllers.CameraController)
 local FxController = require(Controllers.FxController)
+local SprintController = require(Controllers.SprintController)
 local WeaponController = require(Controllers.WeaponController)
 
 local Banner = require(UI.Banner)
@@ -75,6 +76,7 @@ VoteUI.init({
 	end,
 })
 FxController.init({ state = State })
+SprintController.init()
 CameraController.init({ state = State })
 WeaponController.init({ remotes = remotes })
 
