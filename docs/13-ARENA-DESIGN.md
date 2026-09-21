@@ -149,12 +149,14 @@ guard or the probe mis-measuring rather than the arena being wrong:
 | Pair | What it actually was |
 | --- | --- |
 | `BarrierBase_3 into LootPad_7`, `BarrierBase_1 into LootPad_2`, `BarrierPost_4 in Spawn_3` | the barrier's footprint was centred on the line's *origin*, not on the middle of a 21-stud line — the guard cleared a window that was half empty floor and half barrier |
-| `GalleryStrut_S_3 into VaultCrown_2` | real: the archive's crown grazed a gallery strut by 0.43 studs |
 | `Emblem into Press_Anvil`, `Emblem into Press_Foot` | real: the press stood in the dais emblem, and no 9.2-stud press fits a 22-stud dais beside a 9-stud emblem |
-| `MarqueeBack into ClockFace` | the probe's own arithmetic: `Position ± Size/2` claims 9 studs of depth for a 0.6-stud-thick clock face, making a sign 3.8 studs away look embedded in it |
+| `GalleryStrut_S_3 into VaultCrown_2` | real, and the **same** location as the crown in revision 6 — which is the tell that it was not fixed by siding the unit, and led to the `* S` bug behind it (D-039) |
+| `MarqueeBack into ClockFace` | the probe's own arithmetic: `Position ± Size/2` claims 9 studs of depth for a 0.6-stud-thick clock face — the pair survived revision 6's extents fix, so it was a *real* 0.05-stud overlap between the sign's back plane and the clock's rim |
 
-The last row is the reason the probe now measures rotated parts through their own axes. A probe that
-reports geometry that is not there is worse than no probe: it spends somebody's afternoon.
+The last row is the cautionary one. It looked like a second instance of the probe bug already fixed in the
+same session, and it was not: the fix was correct and the overlap was real. **A bug that repeats a
+previous bug's symptom is the easiest kind to wave through**, and the way to tell them apart is to check
+whether the fix is in the code path, which here took one `grep`.
 
 ---
 
@@ -174,24 +176,32 @@ parts the transform pipeline has to move, eleven crate points against five in th
 Identical in revision 2 and revision 5, which is itself a check: moving props and turning cylinders
 upright changes no part counts and no clearance.
 
-**The placement probe, revision 5** — 388 instances, 260 transform groups, 81 chest-height samples an
-inset 8 studs from the partitions (19 of which stood inside a prop and were dropped):
+**The placement probe, measuring the family-hall and an inset 8 studs from the partitions** — 388
+instances, 260 transform groups, 81 chest-height samples (19 of which stood inside a prop and were
+dropped). Revision 6's report:
 
 ```
 budget       parts 1352 / 2500 (54%), transformables 369, instances 1388
 overlaps     6 pair(s) over 0.25 studs   (118 before the guard — see the section above)
 markers      all 58 marker(s) have CanQuery = false
              14 visible non-colliding parts block rays (the grout substrate, the VOTE letters)
-spawns       8 spawns, 1 with something in a standing player's volume: a barrier post
+spawns       8 spawns, 0 with something in a standing player's volume
 sightlines   62 samples at y=3
-             cover hidden (round start):  1009/1891 pairs blocked (53%)
-             cover raised:                1542/1891 pairs blocked (82%)  ->  1.53x
+             cover hidden (round start):   992/1891 pairs blocked (52%)
+             cover raised:                1544/1891 pairs blocked (82%)  ->  1.56x
  the hole     from Tile_1 down: nothing collidable at all below y = -2.1
 ```
 
-53% blocked with cover down is an arena with real sightlines, and 82% with cover up is cover that
-matters: **1.53x**. The earlier revision read 74% and 87%, which is what a grid sampling from *inside
-the walls* looks like, and it was fixed before anybody acted on it (D-036).
+Three things moved for the better between revisions 5 and 6: the spawn volumes went to **0 blocked** (a
+barrier post was standing in one), the markers stayed silent at 58, and the sightlines settled at 52% /
+82% — an arena with real sightlines under cover, and cover worth **1.56x** when it rises. The very first
+reading was 74% / 87%, which is what a grid sampling from *inside the walls* looks like; it was fixed
+before anybody acted on it (D-036).
+
+**Revision 7 (not yet run)** is where the overlap count is expected to go to zero, and the reason it is
+worth stating in advance is that revision 6 proved how easily that number lies. No two of revision 6's
+six findings were a contract violation — every one was the guard measuring a volume that was not the one
+it meant to, or a prop placed before the thing it landed on:
 
 Re-measure rather than trust any of this: `ArenaProbe.logReport` prints all of it on any Play.
 

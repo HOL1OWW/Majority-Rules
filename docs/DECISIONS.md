@@ -921,3 +921,56 @@ the round where the machines win by default.
 **Cost:** bots are now noticeably weaker in `Fog` and `Blackout`, which will make those rounds last
 longer and read as easier. If a bot is meant to be a *threat* in a vision round rather than a body,
 that is the knob to argue about — and the honest fix is a sight cone, not a range multiplier.
+
+### D-039 — `S` is for props authored against the 96-stud hall, not for new ones
+
+`local S = HALF / 48` exists so furniture placed for the 96-stud hall travels with the walls when the
+floor grows. Two rings were authored for the **128-stud** hall and scaled by it anyway:
+
+| | Intended | With `* S` | What it hit |
+| --- | --- | --- | --- |
+| the archive | `44 * S` → radius **58.7** | hard against the east wall, inside the gallery circuit | two `GalleryStrut_S` intersections — a shelf crown and a frame through the strut that carries the upper deck |
+| the voting booths | `43 * S` → radius **57.3** | same wall band | `Vending_Body` 0.85 studs inside a booth's back panel |
+
+Neither was a placement error at the time it was written: at radius 44 the archive is in open mid-field,
+and at 43 the booths are too. Multiplying an absolute stud by a hall-resize factor moved both 14–15 studs
+outward, onto the perimeter, underneath a gallery level that did not exist when either was authored.
+
+Both are now absolute, and both are where geometry says they fit:
+
+* **Archive at 42.** The free band between the colonnade's outer face (38.1) and the crate pads' inner
+  edge (44.5) is **6.4 studs**, and a unit is 3.0 wide radially, so a centre in 39.5..43.0 keeps a stud of
+  air at both ends. Units are 15 degrees apart at that radius — 11.0 studs against a 6.8-stud unit — and
+  are slid along **X**, which for this arc is close to the tangent. Sliding along Z looks right and is
+  wrong: it drifts the ring out to 47.7 into the crate pads, and in to 36.3 into the colonnade.
+* **Booths at 41**, i.e. 2.9 studs off the colonnade and 3.5 off the crate pads.
+
+**A wording trap:** `src/tools/ArenaValidator.lua`'s `ClearanceRadius` doc says a loot point declares a
+"radius whose circumference must be clear of cover". That is a statement about the **crate**, which
+`LootService` builds as 3x3x3 — *not* about the 7x7 marble pad under it, which the validator does not
+measure and which every loot point has stood inside since the pads were introduced. Worth knowing before
+somebody "fixes" the pads to satisfy a documentation line.
+
+### D-040 — The placement guard converges only when landmarks are placed first
+
+The guard settles each prop against everything already built, so the order props are placed in decides
+the result. In revision 6 the five voting booths and the four archive units were placed **last**, after
+every desk, barrier and bank, and the probe then found:
+
+```
+Vending_Body into BoothBack_01 by 0.85
+GalleryStrut_S_3 into VaultCrown_2 by 0.50
+GalleryStrut_S_3 into VaultFrame_2 by 0.42
+BarrierBase_4 into VaultFrame_1 by 0.33
+```
+
+Every one of those is a prop that landed on a landmark which had already made its own decision, and a
+barrier base touching a shelf frame is not a clearance problem — it is furniture built inside furniture,
+which is the exact class of bug this guard exists to remove. Landmarks are now placed among the
+keep-outs, before anything that slides out of the way. The keep-out table already established the
+principle for contract geometry; this extends it to scenery.
+
+**Still standing, and worth a session of its own:** the guard is a sequential search, not a solver. A prop
+moved 24.5 studs to satisfy everything before it can violate something built after it, and the fix is
+always another pass. If overlaps appear again the answer is a two-pass build (reserve, then place) or a
+cost function — not a third `settle` call site.

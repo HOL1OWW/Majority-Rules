@@ -62,7 +62,7 @@ local BuildFoundry = {}
 --! differ from. Scripts have `tests/sync_audit.py` for exactly this; generated geometry needs its
 --! own stamp. `Bootstrap` compares the stamp against this number in Studio and rebuilds on a
 --! mismatch, so pressing Play always tests the hall this source describes.
-BuildFoundry.Revision = 6
+BuildFoundry.Revision = 7
 
 -- --------------------------------------------------------------------------------------- scale
 -- All in studs. These are the design's tuning knobs; change one and re-run the validator.
@@ -1377,7 +1377,12 @@ end
 --! vote happens" from across the hall. Six studs tall, so they are cover you can shoot over.
 local function votingBooths(parent: Instance)
 	local count = 5
-	local radius = 43 * S
+	-- 41, not `43 * S`: same mistake as the archive — the scale put the booths at 57.3, hard against
+	-- the east wall and inside the gallery, where the first back panel was built 0.85 studs into the
+	-- vending machine. At 41 they sit in the field between the colonnade (37.5 at its outer edge) and
+	-- the crate pads (44.5 at their inner edge), which is where furniture the fight happens around
+	-- belongs.
+	local radius = 41
 	local spacing = math.pi / 10 -- 18 degrees: 13.5 studs of clear floor between two booths
 
 	for index = 1, count do
@@ -1452,16 +1457,33 @@ end
 --! standing player's line of sight at range without being a cover piece the validator counts.
 local function archiveVault(parent: Instance)
 	local units = 4
-	-- 0.52π, not 0.56π: the fourth unit at 123 degrees sat inside the south-west staircase, which
-	-- lands on that wall at 129. This ring is the one axis the archive shares with the stairs.
-	local first, step = math.pi * 0.52, math.pi / 24
-	local radius = 44 * S
+	-- Absolute studs, *not* `44 * S`. That scale exists to carry hand-placed props authored against
+	-- the 96-stud hall, and every radius here was already written for a 128-stud one — multiplying it by
+	-- S = 1.333 pushed this ring from mid-field (44) out to 58.7, which is inside the gallery circuit's
+	-- footprint. That is what put a crown through a gallery strut, twice, and it did the same thing to
+	-- the voting booths (see D-039).
+	--
+	-- 0.60π and 15-degree spacing: at radius 42 that is 11.0 studs between units against a 6.8-stud
+	-- unit, so the shelves read as a row rather than being built inside each other. The spacing is not
+	-- decoration — at 7.5 degrees the arc is 5.5 studs and adjacent units overlap.
+	--
+	-- Radius 42 is the *only* radius this fits. The free band between the colonnade's outer face
+	-- (38.1) and the crate pads' inner edge (44.5) is 6.4 studs, and a unit is 3.0 wide radially, so a
+	-- centre anywhere in 39.5..43.0 keeps a stud of air at both ends. 44 put it 1.0 stud into the crate
+	-- pads; 58.7 (44 * S) put it through a gallery strut.
+	local first, step = math.pi * 0.60, math.pi / 12
+	local radius = 42
 
 	for index = 1, units do
 		local angle = first + (index - 1) * step
 		-- Slid along the wall it stands under, because the gallery's struts come down at 56.8 and this
 		-- ring is at 58.7: one unit's crown intersected a strut by 0.43 studs, which is the sort of
 		-- thing that reads as "the shelf is clipping the post" and nothing else.
+		-- Settled along X, which for this arc (108..144 degrees) is close to the *tangent* — 18 to 52
+		-- degrees off it, against the Z axis's 70 to 90. Worth stating because the intuitive choice is
+		-- wrong here: sliding along Z drifts this ring *radially* out to 47.7, straight into the crate
+		-- pads, and at the far end of the arc in to 36.3, into the colonnade. Along X both ends stay
+		-- inside 37.3..44.2, which is the free band.
 		local position = settle(
 			Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius),
 			Vector3.new(3.6, 6.35, 3.6),
@@ -2107,8 +2129,14 @@ function BuildFoundry.build(): Model
 	marquee.Parent = shell
 	-- In front of the buttresses, not in the wall: the ribs project 4.5 studs further into the hall than
 	-- the wall's own face, so a marquee set flush with the wall was buried inside three of them.
+	--
+	-- 2.0 studs clear of them, not 1.2: the Clerk's box clock hangs on the same wall and its 9-stud
+	-- disc reaches 4.5 studs off the wall face, which left the sign's back plane 0.05 studs *inside* the
+	-- clock's rim. The sign cannot simply go higher — the clock is at y 35 and the sign's blocky letters
+	-- occupy 30.5..37.5 — so it moves outward instead: 0.75 studs of air, and still 1.75 studs in front
+	-- of the tallest rib.
 	local ribFace = -SHELL_HALF + 1 + (SHELL_THICKNESS + 4.5) / 2
-	local marqueeFace = CFrame.new(0, 34, ribFace + 1.2) * CFrame.Angles(0, 0, 0)
+	local marqueeFace = CFrame.new(0, 34, ribFace + 2) * CFrame.Angles(0, 0, 0)
 	part({
 		Name = "MarqueeBack",
 		Size = Vector3.new(20, 7, 0.5),
@@ -2366,6 +2394,11 @@ function BuildFoundry.build(): Model
 	-- ------------------------------------------------------------------ institutional fittings
 	-- Everything below is detail: it exists so the hall reads as a working building rather than a
 	-- box, and each of it is also cover or a sightline break somewhere useful.
+	-- Landmarks first, among the keep-outs above and before anything that slides out of the way. The
+	-- order is the whole reason the guard converges: a prop that settles near the end of `build` is
+	-- moved by everything built before it, and something built after it lands on whatever it chose.
+	-- These two used to be placed last and were slid into gallery struts and a vending machine by
+	-- other props' decisions.
 	votingBooths(props)
 	archiveVault(props)
 	queueRopes(props)
