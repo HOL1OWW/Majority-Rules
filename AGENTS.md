@@ -157,6 +157,12 @@ is a script, so it publishes like any other.
   as a directive. Existing files still contain such comments, and the *first* line of each file is a
   real directive, so only new prose comments are affected.
 - Never leave a `print` in shipped code — use `Util/Log.lua`.
+- Before calling something a bug, correlate the observation with the round's **phase and active
+  modifier** — the log timestamps both. Two false alarms in this repository came from inferring a
+  fault from one observation: a weapon in hand during a `MeleeOnly` round is the round working, and an
+  `ONLY IN STUDIO` audit line is another contributor's work in progress. Measure the mechanism
+  (flip the input, read the replicated result) before writing a fix, and check whether the behaviour
+  is reachable at all — the loadout above is unusable because firing requires `State == "Live"`.
 
 ---
 

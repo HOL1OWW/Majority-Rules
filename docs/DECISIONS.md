@@ -495,3 +495,42 @@ in `docs/11-BOTS.md` rather than done quietly here.
 **Verification:** all three rounds of a three-bot session ended by elimination — the player killing
 all three bots (`34.9s`) and the bots killing the player (`10.4s`, `11.7s`). Bot health went
 100 → 0 in about ten seconds of fire; the HUD credited six points for three kills and the round win.
+
+---
+
+### D-026 — The loadout changes at the transform, not at round start
+
+**Status:** accepted (and a correction) · **Date:** 2026-09-21
+
+A player carries the **previous** round's weapons during the vote. `PlayerService.spawn` applies
+`CombatService.currentLoadout()` when the round's characters are created — before the ballot has
+resolved — and the round's own loadout arrives with the transform, via `SetDefaultLoadout` (which
+re-applies to everyone alive) and each loadout modifier's `OnCharacterSpawn`.
+
+**Why it is not a bug:** the tools sit in the Backpack **unequipped**, and `handleFire` returns unless
+`MatchState.State == "Live"`, so the old weapon is unusable and invisible during the vote window. A
+weapon on screen during a ballot was never the intent, and there is not one.
+
+Measured by flipping `ForceModifiers` between rounds in a live session and reading the replicated
+`Loadout` attribute:
+
+```
+10:20:46  set MeleeOnly      ->  carrying Shotgun,SawnOff from the previous round
+10:21:14  ->  Sword
+10:21:26  set PistolsOnly
+10:21:43  ->  Pistol,RapidPistol
+10:22:06  set MeleeOnly      (flip back)
+10:22:11  ->  Sword
+```
+
+Every change landed at the next round's transform, in both directions. There is no carry-over.
+
+**Correction.** An earlier claim — that players spawned at round start kept the previous round's
+loadout while bots got the new one, recorded in the commit message for `adbe566` and in chat — was
+**wrong**. The observation came from a round whose vote really was `MeleeOnly`, so the sword in hand
+was the round working as designed. The doc trail never repeated it; this entry is the measurement that
+settled it.
+
+**Cost:** a loadout cannot change mid-round before the transform, which is correct — the arena and the
+rules are revealed together. If a design ever wants an earlier swap, the place to do it is the same
+re-apply in `SetDefaultLoadout`, guarded on `MatchState.Alive`.
