@@ -534,3 +534,71 @@ settled it.
 **Cost:** a loadout cannot change mid-round before the transform, which is correct — the arena and the
 rules are revealed together. If a design ever wants an earlier swap, the place to do it is the same
 re-apply in `SetDefaultLoadout`, guarded on `MatchState.Alive`.
+
+**Amended by D-027.** "There is no carry-over" holds only while another *loadout* modifier follows. A
+loadout round followed by a round that votes for anything else **did** carry over — see D-027.
+
+---
+
+### D-027 — The loadout is reset every round, and a post-transform check enforces it
+
+**Status:** accepted · **Date:** 2026-09-21
+
+A loadout modifier's effect outlived its own round. `SetDefaultLoadout` overwrites the module-level
+`defaultLoadout` in `CombatService`, and `CombatService.resetRound` cleared only the fire and damage
+bookkeeping — so once a round voted `PistolsOnly`, **every later round in the match handed out pistols**
+until another loadout modifier happened to win. Two siblings already had the reset this one was missing:
+`LootService.reset` restores the crate pool and `GameplayService.reset` restores the gameplay baseline.
+
+The loadout is now reset in the same place, at the top of `runRound` before any modifier runs:
+
+```lua
+function CombatService.resetRound()
+	lastFireAt = {}
+	lastDamageBy = {}
+	defaultLoadout = table.clone(Combat.DefaultLoadout)   -- was missing
+end
+```
+
+Order is what makes it safe: `resetRound` runs before `Prepare`/`OnRoundStart`, so a loadout modifier
+re-sets the default in the same round it was voted for. Players therefore hold the **default** during a
+plain round's vote rather than the previous round's decree — the same harmless pre-transform window
+D-026 describes, with the correct weapon in it.
+
+**Why a check, and not just the fix.** This bug is invisible in play: everyone holds a gun, the round
+runs, nothing errors. It was found only by comparing the tools in hand against what the round asked for,
+which is now a permanent Studio-only assertion, `src/server/Dev/LoadoutCheck.lua`, called from
+`RoundService` right after the transform and the bot spawns. It compares each spawned player's actual
+`Tool` instances *and* the replicated `Loadout` attribute (as order-insensitive sets) against the round's
+expected list: `CombatService.currentLoadout()` when an applied modifier declares the `LoadoutOverride`
+effect, and `Combat.DefaultLoadout` when none does.
+
+It is deliberately **not fatal** — the precedent is the tween reporting in `Util/Tween.lua`, where a
+reporter once took down the round it was describing. `DevConfig.StrictLoadoutCheck = true` makes it throw
+instead. A failed `require` of the check now warns rather than skipping silently, learned the hard way:
+its first wiring used `script.Parent.Dev`, but `Dev` is a **sibling** of `Services`, so the require threw
+inside a `pcall` and the check never ran once while the log stayed clean.
+
+**Verification.** Two live sessions, one player and one bot, `ForceModifiers` flipped mid-round:
+
+```
+BEFORE the fix                                      (the bug, four rounds running)
+  Loadout check: 1 player(s) holding [Pistol,RapidPistol] as the round intends (set by a loadout modifier)
+  LOADOUT CHECK FAILED - round 1, modifiers: Fog
+    expected [Sidearm] (no modifier overrode it, so it is the default)
+    whatamihereforfh holds [Pistol,RapidPistol] and its Loadout attribute says [Pistol,RapidPistol],
+    but this round's loadout is [Sidearm]
+  ... the same failure repeated for rounds 2, 3 and 4
+
+AFTER the fix
+  Loadout check: 1 player(s) holding [Pistol,RapidPistol] as the round intends (set by a loadout modifier)
+  Loadout check: 1 player(s) holding [Sidearm] as the round intends (the default, since no modifier
+                 overrode it)   x4 consecutive Fog rounds
+```
+
+The check earning its keep on the very bug it was written for, then going quiet, is the point: a check
+that fails on the defect and passes on the fix is evidence, and a check that never fails is decoration.
+
+**What it cannot see:** if a loadout modifier's own step failed outright, the round's loadout is still the
+default and a player holding the default matches — a false pass. Closing that needs the modifier's declared
+list, which is not exposed anywhere. Documented in the module header rather than papered over.

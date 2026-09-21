@@ -179,6 +179,19 @@ credit and a contested round alone. `docs/11-BOTS.md` has the setup, the debug l
 the bots deliberately do *not* do, and what promoting it to a real feature would cost. Bots are a
 test aid gated behind a dev flag — do not wire them into a live match path without a decision entry.
 
+## Assertions, not observations
+
+`src/server/Dev/LoadoutCheck.lua` runs after every transform in Studio and compares each player's tools
+against the loadout the round actually asked for, because a per-round effect that leaks into the next
+round *looks exactly like the game working* — a gun in hand, no error, a round that runs. It found the
+loadout leak that D-027 fixes.
+
+Two rules for anything built here, both learned by breaking them: **a failed check must not be able to
+bring down the round it describes** (report loudly, and make throwing opt-in via `DevConfig`, as
+`Util/Tween.lua`'s reporter had to learn), and **a check that can fail to load silently is worse than no
+check** — say so in the log when it cannot run, because a `require` inside a `pcall` with the wrong path
+produces a perfectly clean transcript of nothing happening.
+
 ---
 
 ## Definition of done

@@ -531,6 +531,13 @@ end
 function CombatService.resetRound()
 	lastFireAt = {}
 	lastDamageBy = {}
+	-- The loadout is a per-round effect, exactly like the crate pool (LootService.reset) and the
+	-- gameplay baseline (GameplayService.reset), and this is the only one of the three with nothing
+	-- restoring it. So a loadout modifier's list outlived its own round: after a PistolsOnly round,
+	-- every later round handed out pistols instead of the default, because SetDefaultLoadout had
+	-- overwritten the default that respawns read. Caught by src/server/Dev/LoadoutCheck.lua, which
+	-- failed loudly on four consecutive Fog rounds. See docs/DECISIONS.md D-027.
+	defaultLoadout = table.clone(Combat.DefaultLoadout)
 end
 
 function CombatService.forgetPlayer(player: Player)

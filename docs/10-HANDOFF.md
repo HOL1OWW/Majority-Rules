@@ -26,6 +26,12 @@ with kill credit and points landing on the HUD.
 and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second
 player" as the way to exercise combat.
 
+**The loadout leak was real, and is fixed.** D-026 said there was no carry-over; a round that voted
+`PistolsOnly` followed by a round that voted for anything else proved there was — every later round
+handed out pistols, because `CombatService.resetRound` never restored the default loadout that its two
+siblings (`LootService.reset`, `GameplayService.reset`) both restored. `src/server/Dev/LoadoutCheck.lua`
+fails loudly on it after every transform and now passes; D-027 has the before/after logs.
+
 What has still **never** happened: two humans in one match, 8-player rounds, and mobile/console input.
 No modifier that depends on combat (`Vampire`, `Fragile`, `Ricochet`, `InfiniteAmmo`) has been checked
 against a real fight — the bots make that check possible now.
@@ -36,7 +42,7 @@ against a real fight — the bots make that check possible now.
 
 | Thing | Location | State |
 | --- | --- | --- |
-| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 65 Luau modules, 11 docs. Still inside OneDrive; see "Moving" below |
+| **Canonical project** | `C:\Users\selab\OneDrive\Documents\AI GAMES\The Vote` | the real repo — 66 Luau modules, 11 docs. Still inside OneDrive; see "Moving" below |
 | **GitHub** | `https://github.com/HOL1OWW/Majority-Rules` (remote `origin`) | **in sync** — `origin/main` and local `main` are the same commit. The agent can push from this machine (the credential manager authenticates), so "publish" includes the push. |
 | **Studio place** | `The Vote`, placeId `72737093276287` | **Team Create**, so a second contributor works in the same place and needs no tooling. Contains the hand-built `Foundry` arena and all 64 synced scripts. |
 | **Stray copy 1** | `C:\Users\selab\Majority-Rules` | the DevForum guide's `rojo init` skeleton (`Hello.luau`). **No game code. Delete it.** |

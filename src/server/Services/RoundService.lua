@@ -510,6 +510,22 @@ local function runRound(roundNumber: number, rng: Random)
 		BotService.spawnAll(math.floor(botCount))
 	end
 
+	-- Post-transform smoke check (Studio only): does every player hold what *this* round voted for?
+	-- A loadout that outlives its round looks exactly like the game working, so this compares the
+	-- tools in hand against the round's own loadout rather than trusting the absence of errors.
+	-- Never fatal unless DevConfig.StrictLoadoutCheck says so — a report must not break the round
+	-- it describes. See src/server/Dev/LoadoutCheck.lua.
+	if RunService:IsStudio() then
+		-- Dev is a sibling of Services, and a failed require here is worth knowing about: a check
+		-- that silently never runs is worse than the bug it is looking for.
+		local loaded, LoadoutCheck = pcall(require, script.Parent.Parent.Dev.LoadoutCheck)
+		if loaded and LoadoutCheck then
+			LoadoutCheck.afterTransform(roundNumber, appliedIds, activeDefs)
+		else
+			Log.warn("Loadout check unavailable: %s", tostring(LoadoutCheck))
+		end
+	end
+
 	if #report.failures > 0 then
 		Log.warn("Transform finished with %d failed step(s) in round %d", #report.failures, roundNumber)
 	end
