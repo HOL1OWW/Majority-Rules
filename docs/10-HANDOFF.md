@@ -22,6 +22,15 @@ scheduler collected no tweens, no shot could resolve a victim, and no player's `
 ever connected. With those fixed, a 3-bot session ran three rounds that **all ended by elimination**,
 with kill credit and points landing on the HUD.
 
+**Hand edits to the Foundry hall now persist** — 2026-09-22. The Bootstrap rule that rebuilt any hall
+whose `GeneratorRevision` stamp disagreed with the generator source now skips any arena stamped
+`HandAuthored = true`. That attribute is the freeze button: set it in Studio (no scripting) and the
+hall stops being generator property — you edit it with parts like any map, hand edits survive Play,
+and the publish pipeline ports the whole hall to `assets/arenas/Foundry.rbxmx` (unmapped-instance
+detection: a model in `Arenas` with no repo file is reported as `ONLY IN STUDIO`, which is the signal
+to export it). While frozen, code changes to `BuildFoundry.lua` do **not** reach the hall — unset
+`HandAuthored` and the next Play rebuilds from source. See doc 7 §9.1 for the full workflow.
+
 **Bots exist now** — `BotService`, Studio-only behind `DevConfig.BotCount`, so a round can be played
 and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second
 player" as the way to exercise combat. Since D-044 they fight like bodies, not turrets: bot shots

@@ -56,9 +56,15 @@ if RunService:IsStudio() then
 	-- can silently be several revisions old: the game plays the old hall while the source says
 	-- otherwise, and no check can see it because there is no file to differ from. Compare the
 	-- stamp every build writes and rebuild on a mismatch, so pressing Play always tests this source.
+	-- Exception: an arena stamped HandAuthored belongs to a human. It is never rebuilt, and its
+	-- hand edits survive every Play — that is what the attribute promises.
 	local BuildFoundry = require(script.Parent.Dev.BuildFoundry)
 	local staleReported = false
 	for _, arena in arenas do
+		if arena:GetAttribute("HandAuthored") == true then
+			Log.info("Arena '%s' is hand-authored: leaving it untouched (hand edits persist)", arena.Name)
+			continue
+		end
 		local revision = arena:GetAttribute("GeneratorRevision")
 		if revision ~= BuildFoundry.Revision then
 			if not staleReported then

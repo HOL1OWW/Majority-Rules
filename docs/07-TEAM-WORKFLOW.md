@@ -326,19 +326,34 @@ arenas 2 and 3**.
 by `ServerScriptService/MajorityRulesServer/Dev/BuildFoundry.lua` and stamped with `GeneratorRevision`.
 They have different edit workflows:
 
-### 9.1 The generated hall (Foundry) — edit the generator, not the part
+### 9.1 The generated hall (Foundry) — edit the generator, or freeze it and edit by hand
 
-The hall you see on Play is *code output*, not stored geometry. Two rules follow from that:
+The hall starts life as *code output*: `Bootstrap` rebuilds it whenever its `GeneratorRevision` stamp
+disagrees with the generator source. There are now two ways to work on it.
 
-1. **Hand-moving a part of the hall does not persist.** Any hand edit to `ServerStorage.Arenas.Foundry`
-   survives until the next Play, where `Bootstrap` compares the arena's `GeneratorRevision` stamp
-   against `BuildFoundry.Revision` and rebuilds when they disagree. A hand edit also breaks the stamp
-   contract (a hand-edited hall claims a generator revision it no longer matches).
-2. **The way to change the hall is to change `BuildFoundry.lua`** — or tell the agent what you want and
-   have it change the code — then press Play: the revision stamp does the rest. Tuning knobs are
-   constants at the top of the file (`TILE`, `GRID`, `COVER_RADIUS`, …); props are functions
-   (`votingBooths`, `archiveVault`, …); the placement guard slides props clear automatically and logs
-   every move.
+**Default: edit the generator.** The way to change the hall is to change `BuildFoundry.lua` — or tell
+the agent what you want and have it change the code — then press Play: the revision stamp does the
+rest. Tuning knobs are constants at the top of the file (`TILE`, `GRID`, `COVER_RADIUS`, …); props are
+functions (`votingBooths`, `archiveVault`, …); the placement guard slides props clear automatically.
+
+**Frozen mode: hand-edit the hall with parts (no scripts).** Add the boolean attribute
+**`HandAuthored = true`** to the `Foundry` model in `ServerStorage.Arenas` (Properties → Attributes →
+＋, name `HandAuthored`, type `boolean`, tick it). Bootstrap then leaves the hall alone forever: hand
+edits survive every Play, and you work exactly like any Studio map maker — move parts, recolor,
+add models, delete props. The trade-offs, in plain terms:
+
+- While frozen, code changes to `BuildFoundry.lua` do **not** reach the hall. The generator is
+  disconnected from your arena until you unfreeze.
+- To unfreeze: untick `HandAuthored` and press Play — Bootstrap rebuilds the hall from source and
+  every hand edit is discarded. **Say "publish" and commit before unfreezing** so the hand-built
+  version is saved in git first.
+- The publish pipeline makes the frozen hall safe automatically: it ports the hall to
+  `assets/arenas/Foundry.rbxmx` (the repo file), so `git` holds a copy even before you unfreeze.
+- Contract unchanged: no `Script` may live inside the arena model, tags keep their meanings (§9.4).
+
+The first step once, when you start hand-editing: with the hall frozen, say "publish" — the agent
+ports the current hall to `assets/arenas/Foundry.rbxmx`, commits, and from then on the hand-edited
+hall is versioned like any map file.
 
 ### 9.2 The hand-authored arenas — Studio-first, exactly as documented
 
@@ -353,6 +368,9 @@ The contract (`docs/01-ARENA-CONTRACT.md` §3) defines the folder/tag structure 
 tags are the game's entire interface to your map — the game never looks up parts by name or path.
 
 ### 9.3 Making a change to the Foundry hall: the full loop
+
+If you would rather hand-edit the hall with parts instead of editing code, freeze it first — see
+§9.1, frozen mode. The generator loop below is the default:
 
 1. **Play once and watch the Output** — the placement guard logs every slide, the probe prints its
    report, and rounds run with 7 bots automatically in Studio. Note what you want changed.

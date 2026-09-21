@@ -1061,3 +1061,26 @@ retaliation, but only a player attacker can claim the kill), so a bot that softe
 player still cannot steal the kill. Attribution now stores a Model alongside the Player, and
 `lastAttackerOf` reads it without consuming it, so `creditKill` behaviour is unchanged. The
 retaliation grudge can pull a bot across the map toward its attacker; that is what a player would do.
+
+### D-045 — The Foundry hall can be frozen and hand-edited (`HandAuthored`)
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** The hall on Play is generator output; `Bootstrap` rebuilt any arena whose
+`GeneratorRevision` stamp disagreed with `BuildFoundry.lua`. That guarantees source and geometry
+agree, but it made the generator the *only* way to touch the hall — a designer moving parts in
+Studio had every edit erased at the next Play.
+
+**Decision.** `Bootstrap` now skips any arena carrying `HandAuthored = true` (boolean attribute on
+the arena model). A frozen arena is never rebuilt: hand edits persist across Play, and the arena is
+played like any hand-authored map. Unfreezing (untick + Play) resumes the generator contract — full
+rebuild, hand edits discarded. The publish pipeline covers the data-loss risk while frozen: the hall
+is ported to `assets/arenas/Foundry.rbxmx` and committed, so a frozen hall is always in git.
+
+**Why not just leave it to discipline?** "Don't hand-edit the generated hall" failed the first time
+it was tried, because the person editing has no way to see the rule from inside Studio. An attribute
+is visible in Properties, self-documenting, and costs Bootstrap one `if`.
+
+**Consequences.** The handoff's two-audience split (§9.1) is now: generator for systematic change,
+frozen hall for designer-time change. `GeneratorRevision` stamps on a frozen arena are informational
+only. Doc 7 §9.1 documents the workflow.
