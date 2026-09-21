@@ -75,13 +75,26 @@ local function sameFamily(a: string, b: string): boolean
 	return string.sub(stemB, 1, #stemA) == stemA or string.sub(stemA, 1, #stemB) == stemB
 end
 
---! Overlap depth of two boxes in world space, as an axis-aligned approximation. Rotated props are
---! approximated rather than solved exactly, which can over-report a near miss by a fraction of a
---! stud; the tolerance exists for that reason, and the cost of a false positive here is one line a
---! human reads and dismisses.
+--! The world-space extents of a part, taken through its own axes. `Position ± Size / 2` is only
+--! correct for a part that happens to be axis-aligned, and the two things it got wrong here were
+--! both false findings about rotated props: a 0.6-stud-thick clock face nine studs across was reported
+--! as intersecting a sign 3.8 studs away from it, because its unrotated box claimed 9 studs of depth.
+local function extentsOf(part: BasePart): (Vector3, Vector3)
+	local cf, half = part.CFrame, part.Size / 2
+	local extents = Vector3.new(
+		math.abs(cf.RightVector.X) * half.X + math.abs(cf.UpVector.X) * half.Y + math.abs(cf.LookVector.X) * half.Z,
+		math.abs(cf.RightVector.Y) * half.X + math.abs(cf.UpVector.Y) * half.Y + math.abs(cf.LookVector.Y) * half.Z,
+		math.abs(cf.RightVector.Z) * half.X + math.abs(cf.UpVector.Z) * half.Y + math.abs(cf.LookVector.Z) * half.Z
+	)
+	return cf.Position - extents, cf.Position + extents
+end
+
+--! Overlap depth of two boxes in world space, as an axis-aligned approximation of their true shape.
+--! Rotation is handled; curvature is not — a cylinder still reserves its square, which can over-report
+--! a near miss by a fraction of a stud, and the tolerance exists for that reason.
 local function overlapDepth(a: BasePart, b: BasePart): number
-	local amin, amax = a.Position - a.Size / 2, a.Position + a.Size / 2
-	local bmin, bmax = b.Position - b.Size / 2, b.Position + b.Size / 2
+	local amin, amax = extentsOf(a)
+	local bmin, bmax = extentsOf(b)
 	local depth = math.huge
 	for _, axis in { "X", "Y", "Z" } do
 		local overlap = math.min(amax[axis], bmax[axis]) - math.max(amin[axis], bmin[axis])

@@ -62,7 +62,7 @@ local BuildFoundry = {}
 --! differ from. Scripts have `tests/sync_audit.py` for exactly this; generated geometry needs its
 --! own stamp. `Bootstrap` compares the stamp against this number in Studio and rebuilds on a
 --! mismatch, so pressing Play always tests the hall this source describes.
-BuildFoundry.Revision = 5
+BuildFoundry.Revision = 6
 
 -- --------------------------------------------------------------------------------------- scale
 -- All in studs. These are the design's tuning knobs; change one and re-run the validator.
@@ -862,13 +862,16 @@ local function stampPress(parent: Instance)
 	-- and a 12-tall press on the first version of this shot list blocked the vote camera outright.
 	-- Total height is capped at 6.2 above the dais so camera 6, which rakes across at y=8.15, clears
 	-- the beam by half a stud.
-	local cx = 6
+	-- 7.4 and a 6.8-stud footprint, not 6 and 9.2: the emblem's depth bars reach 3.47 studs off centre
+	-- and the dais ends at 11, so the press has to live in the 3.9 studs between them. Sized to the
+	-- arithmetic rather than to taste — `ArenaProbe` reported the old one standing in the emblem.
+	local cx = 7.4
 	local cz = -5
 	local base = DAIS_HEIGHT
-	for _, x in { cx - 3.2, cx + 3.2 } do
+	for _, x in { cx - 2.4, cx + 2.4 } do
 		part({
 			Name = "Press_Post",
-			Size = Vector3.new(1.4, 5, 1.4),
+			Size = Vector3.new(1.2, 5, 1.2),
 			Position = Vector3.new(x, base + 2.5, cz),
 			Color = GRAPHITE,
 			Material = Enum.Material.CorrodedMetal,
@@ -876,7 +879,7 @@ local function stampPress(parent: Instance)
 		}, parent)
 		part({
 			Name = "Press_Foot",
-			Size = Vector3.new(2.8, 0.6, 2.8),
+			Size = Vector3.new(2.2, 0.6, 2.2),
 			Position = Vector3.new(x, base + 0.3, cz),
 			Color = INK,
 			Material = Enum.Material.Slate,
@@ -885,7 +888,7 @@ local function stampPress(parent: Instance)
 	end
 	part({
 		Name = "Press_Beam",
-		Size = Vector3.new(8.8, 1.4, 2.2),
+		Size = Vector3.new(6.6, 1.4, 2.2),
 		Position = Vector3.new(cx, base + 5.5, cz),
 		Color = BRASS,
 		Material = Enum.Material.Metal,
@@ -903,7 +906,7 @@ local function stampPress(parent: Instance)
 	}, parent)
 	part({
 		Name = "Press_Head",
-		Size = Vector3.new(5.2, 2, 5),
+		Size = Vector3.new(4.4, 2, 4.6),
 		Position = Vector3.new(cx, base + 3.6, cz),
 		Color = BRASS,
 		Material = Enum.Material.Metal,
@@ -921,7 +924,7 @@ local function stampPress(parent: Instance)
 	}, parent)
 	part({
 		Name = "Press_Anvil",
-		Size = Vector3.new(7.2, 0.9, 5.8),
+		Size = Vector3.new(6, 0.9, 5),
 		Position = Vector3.new(cx, base + 0.45, cz),
 		Color = INK,
 		Material = Enum.Material.Slate,
@@ -1456,7 +1459,17 @@ local function archiveVault(parent: Instance)
 
 	for index = 1, units do
 		local angle = first + (index - 1) * step
-		local position = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		-- Slid along the wall it stands under, because the gallery's struts come down at 56.8 and this
+		-- ring is at 58.7: one unit's crown intersected a strut by 0.43 studs, which is the sort of
+		-- thing that reads as "the shelf is clipping the post" and nothing else.
+		local position = settle(
+			Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius),
+			Vector3.new(3.6, 6.35, 3.6),
+			"Vault_" .. index,
+			true,
+			1.5,
+			8
+		)
 		local facing = CFrame.lookAt(position, Vector3.new(0, 0, 0))
 		part({
 			Name = "VaultFrame_" .. index,
@@ -2138,9 +2151,12 @@ function BuildFoundry.build(): Model
 		Decor = true,
 		Tags = { Tags.Static },
 	}, geometry)
+	-- 7 studs, not 9, and the X 8 long rather than 12: the press has to stand on this dais beside it,
+	-- and the two did not fit. A 9-wide emblem and a 9.2-wide press need 9.1 studs of half-width from a
+	-- dais that offers 11 — before the 45-degree bars, whose diagonal reach is what actually collided.
 	part({
 		Name = "Emblem",
-		Size = Vector3.new(9, 0.4, 9),
+		Size = Vector3.new(7, 0.4, 7),
 		Position = Vector3.new(0, DAIS_HEIGHT + 0.25, 0),
 		Color = INK,
 		Material = Enum.Material.Slate,
@@ -2149,7 +2165,7 @@ function BuildFoundry.build(): Model
 	for index = 1, 2 do
 		part({
 			Name = "EmblemBar",
-			Size = Vector3.new(12, 0.3, 1.8),
+			Size = Vector3.new(8, 0.3, 1.8),
 			CFrame = CFrame.new(0, DAIS_HEIGHT + 0.4, 0) * CFrame.Angles(0, index == 1 and math.pi / 4 or -math.pi / 4, 0),
 			Color = ACCENT,
 			Material = Enum.Material.Neon,
@@ -2237,9 +2253,17 @@ function BuildFoundry.build(): Model
 	-- A barrier line is 21 studs of posts and rope, so the whole line has to clear the crate pads —
 	-- three of the sixteen bases were standing on one, which is why the pads are registered above as
 	-- keep-outs rather than measured here.
+	-- The line runs *from* its origin, not through it — four posts at 0, 7, 14 and 21 — so the footprint
+	-- handed to the guard has to be centred on the middle of that run. The first version centred it on
+	-- the origin, which measured a 21-stud window that was half empty floor and half line: three bases
+	-- ended up standing on crate pads, and one post inside a spawn volume.
 	local function placeBarrier(index: number, preferred: Vector3, alongX: boolean)
+		local half = 10.5
+		local centre = alongX and preferred + Vector3.new(half, 0, 0) or preferred + Vector3.new(0, 0, half)
 		local size = alongX and Vector3.new(23.4, 3.4, 2.4) or Vector3.new(2.4, 3.4, 23.4)
-		barrier(index, settle(preferred, size, "Barrier_" .. index, alongX, 3.5, 8), alongX, props)
+		local settled = settle(centre, size, "Barrier_" .. index, alongX, 3.5, 8)
+		local origin = alongX and settled - Vector3.new(half, 0, 0) or settled - Vector3.new(0, 0, half)
+		barrier(index, origin, alongX, props)
 	end
 	placeBarrier(1, Vector3.new(6 * S, 0, 30 * S), true)
 	placeBarrier(2, Vector3.new(-30 * S, 0, 6 * S), false)
