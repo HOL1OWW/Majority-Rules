@@ -355,6 +355,20 @@ The first step once, when you start hand-editing: with the hall frozen, say "pub
 ports the current hall to `assets/arenas/Foundry.rbxmx`, commits, and from then on the hand-edited
 hall is versioned like any map file.
 
+**Seeing and editing the frozen hall (the daily loop).** `ServerStorage` never renders in Studio's
+3D view, so the hall is edited by drag:
+
+1. Drag `ServerStorage/Arenas/Foundry` into `Workspace` — it becomes visible and editable.
+2. Build with parts: move, resize, recolor, add models, change lighting. No scripts inside the
+   arena, ever. Lighting edits persist while frozen, because the generator never re-runs.
+3. Drag it back into `Arenas` before pressing Play — the game only finds arenas there, and an arena
+   left in Workspace makes Bootstrap believe none exists (it builds a duplicate).
+4. Ctrl+S, then "publish". Team Create teammates do steps 1–3 in the same shared place; the repo
+   export (`Save to File…`) happens on whichever machine has the checkout.
+
+The build applies its own dusk lighting (`applyLighting` in `BuildFoundry.lua`) to the place's
+`Lighting` service — that is design, not a bug, and while frozen it can be hand-set and stays set.
+
 ### 9.2 The hand-authored arenas — Studio-first, exactly as documented
 
 1. In Studio's Explorer, right-click the arena model → **Save to File** →
