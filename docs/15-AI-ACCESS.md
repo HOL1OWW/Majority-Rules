@@ -197,7 +197,9 @@ returns success while the real PlayerGui never changes. Cost: two wasted probe r
 not through module state; drive UI only through the real event pipeline (server broadcast →
 connection). Server-side `require` of server modules has not shown this split.
 
-### Technique discoveries (protocols that worked)
+### Technique discoveries
+
+- **(2026-09-22) `get_console_output` can serve a stale cache.** During one Play session it returned the identical old output across Server/Client/Edit datamodels while the session ran fine. Proof: the Studio log file (`AppData/Local/Roblox/logs/*Studio*_last.log`, grep for `[MR]` and `FLog::CreatorOutput`) showed fresh lines for the same wall-clock window. Fallback: read the log file directly — it is always the ground truth for Play sessions. (protocols that worked)
 
 ---
 
