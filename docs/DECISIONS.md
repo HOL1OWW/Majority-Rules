@@ -1188,3 +1188,33 @@ special-cased melee AI. A bot should be a genuine threat with whatever the vote 
 **Consequences.** `FIRE_INTERVAL_SCALE` (2.4×) now also paces melee swings; a sword's 0.6 s
 fire-rate means a swing every ~1.4 s at contact range. Melee bots can still be outrun — sprint
 moves faster than a 9-stud lunge can close.
+
+### D-051 — Third-person aim is a POINT, not a direction (the shiftlock-only fix)
+
+**Symptom:** shots only landed while shiftlocked and aimed at the target; free-aim clicks at an
+off-center enemy always missed. Player-side only — bots were fine.
+
+**Root cause (geometric, not cosmetic):** the client sent `Camera.CFrame.LookVector` and the
+server cast from the MUZZLE along that direction. Camera ray and muzzle ray are parallel but
+offset (camera sits behind/above the shoulder; muzzle sits at the gun). Two parallel offset rays
+intersect only on the screen's center line — exactly what shiftlock forces. Off-center, the
+muzzle ray always passed beside the target, and the miss grew with screen distance.
+
+**Fix — separate aiming from shooting, the way real third-person shooters do it:**
+- Client picks an AIM POINT: cast the camera ray through the actual cursor
+  (`ViewportPointToRay`, 1000 studs, exclude self) and settle on a RaycastParams-filtered world
+  point — fall back to `origin + dir * 1000` on sky (a deterministic far point, not an
+  unanchored zero vector).
+- Client sends `origin, aimPoint` (three args). Server derives the true shot direction from
+  muzzle → aim point, then normal spread applies around that ray. Fixed-length legacy signature
+  (`origin, direction`) still accepted; `nil` aimPoint → camera-direction fallback.
+- Bots already aimed this way implicitly (muzzle → target HRP), which is why they never missed.
+- Aim assist for controllers comes free later: replace the aim-point pick, nothing else.
+
+**Feel:** crosshair follows the cursor (dot + ring, centered only in shiftlock) so the camera ray
+is always visible; server reports which pellets hit and the shooter's own screen flashes white on
+connection (FxController `shotConnected`).
+
+**Rule of thumb going forward:** the client may never send a *direction* it also expects to be
+honored — directions are derived server-side from two points. The same contract covers
+rockets, grenades and any future homing round.

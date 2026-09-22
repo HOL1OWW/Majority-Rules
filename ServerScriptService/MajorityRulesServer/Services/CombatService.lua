@@ -284,7 +284,28 @@ local function resolveShot(
 	return victimCount
 end
 
-local function handleFire(player: Player, tool: Instance, origin: Vector3, direction: Vector3)
+--! The shot direction is DERIVED on the server from muzzle → aim point (D-051). The client aims
+--! by camera ray and sends the world point it settled on; casting from the muzzle toward that
+--! point makes the two rays converge on the target instead of running parallel-but-offset — the
+--! geometric reason third-person shots only landed in shiftlock before. The old 4th argument
+--! (a client-supplied direction) remains supported as a fallback so the remote contract never
+--! breaks mid-update; a client that sends both gets the converged ray.
+local function handleFire(player: Player, tool: Instance, origin: Vector3, direction: Vector3?, aimPoint: Vector3?, aimFrom: Vector3?)
+	local shotDirection: Vector3?
+	if typeof(aimPoint) == "Vector3" then
+		local toAim = aimPoint - origin
+		if toAim.Magnitude > 0.001 then
+			shotDirection = toAim.Unit
+		end
+	end
+	if not shotDirection then
+		if typeof(direction) == "Vector3" and direction.Magnitude > 0.001 then
+			shotDirection = direction.Unit
+		else
+			return
+		end
+	end
+
 	if MatchState.State ~= "Live" then
 		return
 	end
@@ -332,10 +353,10 @@ local function handleFire(player: Player, tool: Instance, origin: Vector3, direc
 
 	lastFireAt[player] = now
 
-	local victimCount = resolveShot(player, character, origin, direction, profile)
+	local victimCount = resolveShot(player, character, origin, shotDirection :: Vector3, profile)
 
 	-- Replication for tracers and hit confirmation. Purely cosmetic on the client.
-	Net.broadcast("WeaponTracer", player, origin, origin + direction * profile.Range, victimCount > 0)
+	Net.broadcast("WeaponTracer", player, origin, origin + (shotDirection :: Vector3) * profile.Range, victimCount > 0)
 end
 
 --! Fires a bot's weapon. Bots carry no Tool and no Player: BotService supplies the aim and the
@@ -539,14 +560,18 @@ function CombatService.start()
 		CombatService.bindPlayer(player)
 	end
 
-	Net.event(Net.Events.WeaponFire).OnServerEvent:Connect(function(player, tool, origin, direction)
-		if typeof(tool) ~= "Instance" or typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
+	Net.event(Net.Events.WeaponFire).OnServerEvent:Connect(function(player, tool, origin, direction, aimPoint, aimFrom)
+		if typeof(tool) ~= "Instance" or typeof(origin) ~= "Vector3" then
 			return
 		end
-		if direction.Magnitude < 0.001 then
+		-- D-051: the converged shot needs an aim point; legacy clients may send only a direction.
+		if typeof(aimPoint) ~= "Vector3" and (typeof(direction) ~= "Vector3" or direction.Magnitude < 0.001) then
 			return
 		end
-		local ok, err = pcall(handleFire, player, tool, origin, direction.Unit)
+		if typeof(aimPoint) == "Vector3" and typeof(aimFrom) ~= "Vector3" then
+			aimFrom = nil -- aimFrom is advisory only; never let a bad type through
+		end
+		local ok, err = pcall(handleFire, player, tool, origin, direction, aimPoint, aimFrom)
 		if not ok then
 			Log.warn("Fire handling failed for %s: %s", player.Name, tostring(err))
 		end

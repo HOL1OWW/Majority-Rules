@@ -49,6 +49,15 @@ player" as the way to exercise combat. Since D-044 they fight like bodies, not t
 damage bots (the old player-only gate made every bot-on-bot shot a whiff), they retaliate against
 whoever last hit them, drift while holding, and disengage when losing.
 
+**Third-person aim was broken outside shiftlock — fixed on 2026-09-22 (D-051).** The client used to
+send the *camera's* direction and the server cast from the *muzzle* along it; two parallel, offset
+rays only ever meet at screen-center, which is exactly what shiftlock forces. The contract is now
+point-based: the client sends the world point its cursor settles on (`origin, aimPoint`), the server
+derives muzzle → point and applies spread around that. The crosshair follows the cursor and the
+shooter's own screen flashes on a connected pellet, so aim is checkable by feel, not by guesswork.
+Bots were always right because they aim muzzle → target. Rule going forward: clients send points,
+not directions.
+
 **The loadout leak was real, and is fixed.** D-026 said there was no carry-over; a round that voted
 `PistolsOnly` followed by a round that voted for anything else proved there was — every later round
 handed out pistols, because `CombatService.resetRound` never restored the default loadout that its two
