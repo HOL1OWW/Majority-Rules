@@ -91,10 +91,14 @@ def rounded(d, box, radius, w=14, fill=False):
 # ---------------------------------------------------------------- glyphs
 
 def g_feather(d):
-    stroke(d, [(96, 200), (170, 90)])
-    poly(d, [(112, 184), (150, 184), (188, 122), (150, 122), (188, 60), (150, 60)], close=False)
-    stroke(d, [(150, 184), (150, 122)])
-    stroke(d, [(170, 90), (112, 90)])
+    # v2: leaf/feather vane around a 45-degree spine, horizontal barbs. Reads at 18px,
+    # unlike the old zigzag quill.
+    stroke(d, [(60, 196), (78, 132), (132, 78), (196, 60)], w=14)
+    stroke(d, [(60, 196), (124, 178), (178, 124), (196, 60)], w=14)
+    stroke(d, [(60, 196), (196, 60)], w=12)
+    stroke(d, [(96, 160), (122, 160)], w=8)
+    stroke(d, [(128, 128), (154, 128)], w=8)
+    stroke(d, [(158, 98), (184, 98)], w=8)
 
 
 def g_uparrow(d):
@@ -118,9 +122,10 @@ def g_doublechevronup(d):
 
 
 def g_bubble(d):
-    circle(d, 128, 118, 70)
-    arc(d, 96, 176, 30, 200, 320)
-    circle(d, 186, 62, 16, fill=True)
+    # v2: spring coil between two plates — the universal "bouncy".
+    stroke(d, [(60, 52), (196, 52)], w=16)
+    stroke(d, [(60, 204), (196, 204)], w=16)
+    stroke(d, [(88, 52), (168, 90), (88, 128), (168, 166), (88, 204)], w=12)
 
 
 def g_icecrystal(d):
@@ -178,10 +183,13 @@ X = None  # keep linters honest about module-level X usage below
 
 
 def g_gunswap(d):
-    poly(d, [(44, 84), (44, 128), (160, 128)], close=False)
-    poly(d, [(160, 128), (160, 112), (192, 120), (160, 144), (160, 128)], close=False, w=12)
-    poly(d, [(212, 172), (212, 128), (96, 128)], close=False)
-    stroke(d, [(96, 128), (96, 150), (68, 136), (96, 112), (96, 128)], w=12)
+    # v2: two opposing arrows (swap). The old overlapping half-guns read as noise.
+    stroke(d, [(48, 92), (196, 92)], w=14)
+    stroke(d, [(196, 92), (160, 68)], w=12)
+    stroke(d, [(196, 92), (160, 116)], w=12)
+    stroke(d, [(208, 164), (60, 164)], w=14)
+    stroke(d, [(60, 164), (96, 140)], w=12)
+    stroke(d, [(60, 164), (96, 188)], w=12)
 
 
 def g_crosshairslash(d):
@@ -203,8 +211,12 @@ def g_heart(d):
 
 
 def g_lava(d):
-    d.polygon([(44, 200), (212, 200), (184, 96), (152, 96), (128, 56), (104, 96), (72, 96)],
-              fill=INK)
+    # v2: pool slab + falling drips. The old blob read as a hat.
+    rounded(d, [48, 152, 208, 208], 18, w=14, fill=True)
+    stroke(d, [(100, 58), (100, 84)], w=10)
+    circle(d, 100, 100, 14, fill=True)
+    stroke(d, [(156, 88), (156, 112)], w=10)
+    circle(d, 156, 128, 14, fill=True)
 
 
 def g_warning(d):
@@ -220,9 +232,10 @@ def g_dice(d):
 
 
 def g_infinity(d):
-    r = 44
-    for cx in (84, 172):
-        d.arc([cx - r, 128 - r, cx + r, 128 + r], 0, 360, fill=INK, width=14)
+    # v2: two overlapping rings — the stroke crossing is what makes it read as infinity
+    # instead of an "8" lying down.
+    circle(d, 90, 128, 42, w=14)
+    circle(d, 166, 128, 42, w=14)
 
 
 def g_droplet(d):
@@ -233,9 +246,13 @@ def g_droplet(d):
 
 
 def g_ricochet(d):
-    stroke(d, [(40, 200), (110, 130), (96, 118), (170, 96)], w=14)
-    poly(d, [(170, 96), (140, 88), (166, 64)], close=False, w=12)
-    stroke(d, [(40, 200), (60, 196)], w=16)
+    # v2: ground, incoming path, deflection with arrowhead at the tip — physics a glance
+    # can parse.
+    stroke(d, [(36, 208), (168, 208)], w=14)
+    stroke(d, [(48, 72), (120, 208)], w=12)
+    stroke(d, [(120, 208), (196, 96)], w=12)
+    stroke(d, [(196, 96), (164, 102)], w=12)
+    stroke(d, [(196, 96), (182, 128)], w=12)
 
 
 def g_shrinkarrow(d):
