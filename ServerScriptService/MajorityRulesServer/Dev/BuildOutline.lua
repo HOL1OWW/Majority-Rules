@@ -118,6 +118,8 @@ function BuildOutline.build(): Model
 	arena:SetAttribute(Tags.Attr.FeatureTags, "FlatFloor")
 	arena:SetAttribute(Tags.Attr.FloorY, 0)
 	arena:SetAttribute("GeneratorRevision", BuildOutline.Revision)
+	-- The game finds arenas by this tag (ArenaService.availableArenas), and the validator checks it.
+	CollectionService:AddTag(arena, Tags.Arena)
 
 	local geometry = Instance.new("Folder")
 	geometry.Name = "Geometry"
@@ -234,6 +236,7 @@ function BuildOutline.build(): Model
 	}, geometry)
 
 	applyLighting()
+	arena.Parent = container
 
 	local count = 0
 	for _ in arena:GetDescendants() do
