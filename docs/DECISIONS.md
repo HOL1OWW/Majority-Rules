@@ -1274,3 +1274,9 @@ availableArenas, adoption, transforms — so a Folder-rooted arena is invisible 
 descendant tag survives intact. Boot then falls back to the outline arena, which looks like
 "my map was replaced". Bootstrap's adoption net now converts a Folder with tagged spawns
 into a Model before the adoption check runs (and logs it loudly).
+
+### D-057 — Hidden cover must restore CanQuery on reveal, not just CanCollide
+**Date:** 2026-09-22 · **Context:** Milestone 1 cover kit verification.
+Hidden cover parts are authored with `CanQuery=false` (they must not block pre-transform raycasts). `SetGroupHidden(false)` restored only `Transparency` and `CanCollide` — revealed cover would have been visible and solid but **every bullet passed straight through it** (CombatService and BotService raycasts honour CanQuery). Found by probing the live place during kit verification, not by reading code.
+**Decision:** `SetGroupHidden` always sets `CanQuery` alongside `CanCollide`. Collision and query change immediately; only Transparency tweens.
+**Consequence:** hidden geometry never intercepts pre-vote shots, revealed geometry never fails to block them. Any future "hidden until transformed" kit inherits this behavior for free.

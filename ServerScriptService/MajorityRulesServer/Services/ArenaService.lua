@@ -516,8 +516,12 @@ function ArenaService.SetGroupHidden(group: string, hidden: boolean, duration: n
 	local out = {}
 	for _, part in parts do
 		if part.Parent then
-			-- Collision changes immediately: physics must never be mid-tween.
+			-- Collision and query both change immediately: physics must never be mid-tween, and
+			-- a revealed part must block bullets the moment it is visible. CombatService and
+			-- BotService reach through Workspace:Raycast, which honours CanQuery — restoring only
+			-- CanCollide here left visible cover that every shot passed straight through (D-057).
 			part.CanCollide = not hidden
+			part.CanQuery = not hidden
 			local tween = Tween.go(part, duration or 0, { Transparency = hidden and 1 or 0 })
 			if tween then
 				table.insert(out, tween)
