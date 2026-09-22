@@ -84,6 +84,7 @@ function VoteService.payloadFor(player: Player)
 			Blurb = def.Blurb,
 			Tier = def.Tier,
 			Tags = def.Tags,
+			Effects = def.Effects, -- client renders these as icon chips so players see the mechanics, not just the fantasy
 			IsGamble = def.IsGamble == true,
 			Tally = state.tallies[def.Id] or 0,
 			Voters = voters,

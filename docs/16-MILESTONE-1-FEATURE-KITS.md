@@ -64,6 +64,24 @@ You may restyle anything visually. The contract only cares about four things.
 
 ---
 
+## Ballot polish (D-058)
+
+Vote cards now show **effect icon chips** — one emoji per mechanical effect (`Effects`
+array on the modifier def), tinted with the modifier's category color, plus the same icon
+row on the APPROVED stamp. The mapping lives in `VoteUI.lua` (`EFFECT_ICON`): every
+current effect token is mapped; an unmapped token simply renders no chip, so adding a
+modifier with new effects never breaks the UI. Adding an icon for a new effect is a
+one-line table entry.
+
+Verified live: real ballots rendered `HEAVY GRAVITY → 🔺` and `BLACKOUT → 🌫️🌑`.
+
+**Important discovery while verifying (now a checklist item):** both **Bootstrap scripts
+can be toggled off with the checkbox in Studio's Properties pane**. When they are, Play
+runs with zero game code — no arena, no vote, no UI, no error anywhere. If Play ever
+feels like an empty baseplate, check that checkbox on
+`ServerScriptService/MajorityRulesServer/Bootstrap` and
+`StarterPlayerScripts/MajorityRulesClient/Bootstrap` before debugging anything else.
+
 ## Milestone 1 remaining (hand work)
 
 1. Restyle tiles + cover per above (you + brother).

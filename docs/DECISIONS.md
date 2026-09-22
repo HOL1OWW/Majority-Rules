@@ -1280,3 +1280,9 @@ into a Model before the adoption check runs (and logs it loudly).
 Hidden cover parts are authored with `CanQuery=false` (they must not block pre-transform raycasts). `SetGroupHidden(false)` restored only `Transparency` and `CanCollide` — revealed cover would have been visible and solid but **every bullet passed straight through it** (CombatService and BotService raycasts honour CanQuery). Found by probing the live place during kit verification, not by reading code.
 **Decision:** `SetGroupHidden` always sets `CanQuery` alongside `CanCollide`. Collision and query change immediately; only Transparency tweens.
 **Consequence:** hidden geometry never intercepts pre-vote shots, revealed geometry never fails to block them. Any future "hidden until transformed" kit inherits this behavior for free.
+
+### D-058 — Ballot cards render effect chips; disabled Bootstraps are the silent killer
+**Date:** 2026-09-22 · **Context:** Vote experience polish.
+Players were voting on fantasy names with no mechanical truth visible. The `Effects` array on every modifier def already described the mechanics — it just never reached the client.
+**Decision:** `VoteService.payloadFor` includes `Effects`; VoteUI renders one emoji chip per effect (mapped in `VoteUI.EFFECT_ICON`, tinted by category color) between name and blurb, and the APPROVED stamp shows the winner's icon row via a display-name registry lookup. Unmapped effect tokens render nothing — adding modifiers never breaks the ballot; adding icons is a one-line table entry.
+**Consequence (checklist item):** while verifying, every Play appeared dead — no arena, no UI, no error. Root cause: both Bootstrap scripts had `Enabled = false` in the place (left over from map-building). Play with disabled Bootstraps is indistinguishable from a broken build. Always check the Properties checkbox on the two Bootstraps first when Play looks empty; treat disabling them as a trap.

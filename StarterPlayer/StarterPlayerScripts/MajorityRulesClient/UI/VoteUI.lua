@@ -30,12 +30,45 @@ local cardRow
 local stampOverlay
 local stampCard
 local stampTitle
+local stampIcons
 local stampDetail
 local cards = {}
 local thumbCache = {}
 local stampTween
 
 local TIER_LABEL = { "TIER 1", "TIER 2", "TIER 3" }
+
+-- One emoji per Effects token. Chosen so the row reads as a sentence of mechanics at a
+-- glance: float, slide, bounce, darkness. A modifier with an unmapped effect simply gets
+-- no chip — silent, never wrong. Text glyphs rather than image assets: zero uploads, and
+-- they inherit the category tint so chaos reads chaos at a glance.
+local EFFECT_ICON = {
+	GravityDown = "🪶",
+	GravityUp = "🔺",
+	AirTime = "🎈",
+	AirJump = "⏫",
+	Bouncy = "🫧",
+	Drift = "🧊",
+	ZeroFriction = "🧊",
+	FastWalk = "👟",
+	SlowWalk = "🐌",
+	NoJump = "🚫",
+	Collapse = "💥",
+	Cover = "📦",
+	Hazard = "⚠️",
+	Lava = "🌋",
+	Gamble = "🎰",
+	InfiniteAmmo = "♾️",
+	Lifesteal = "🩸",
+	LoadoutOverride = "🔫",
+	NoRanged = "🎯",
+	LowHealth = "❤️‍🔥",
+	Ricochet = "⚡",
+	Shrink = "📉",
+	VisionLimited = "🌫️",
+	Darkness = "🌑",
+	Example = "❓",
+}
 
 local function fetchThumbnail(userId: number): string
 	local ok, url = pcall(function()
@@ -76,7 +109,7 @@ local function buildCard(index: number)
 
 	local name = Theme.label({
 		Position = UDim2.new(0, 12, 0, 30),
-		Size = UDim2.new(1, -24, 0, 46),
+		Size = UDim2.new(1, -24, 0, 44),
 		Text = "MODIFIER",
 		TextSize = 19,
 		TextWrapped = true,
@@ -87,8 +120,8 @@ local function buildCard(index: number)
 	}, card)
 
 	local blurb = Theme.label({
-		Position = UDim2.new(0, 12, 0, 80),
-		Size = UDim2.new(1, -24, 0, 58),
+		Position = UDim2.new(0, 12, 0, 98),
+		Size = UDim2.new(1, -24, 0, 34),
 		Text = "",
 		TextSize = 12,
 		TextWrapped = true,
@@ -97,6 +130,16 @@ local function buildCard(index: number)
 		Font = Theme.Font.Body,
 		TextColor3 = Theme.Color.Mute,
 	}, card)
+
+	-- Effect chips: the mechanical truth under the fantasy. Built once per card, refilled
+	-- by setEffects each render. Sits between the name and the blurb.
+	local effectRow = Theme.frame({
+		Position = UDim2.new(0, 12, 0, 76),
+		Size = UDim2.new(1, -24, 0, 18),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true, -- 5-card ballots make narrow cards; overflow must never paint over the tally
+	}, card)
+	Theme.listLayout(effectRow, Enum.FillDirection.Horizontal, 4)
 
 	local tallyBackground = Theme.frame({
 		Position = UDim2.new(0, 12, 1, -46),
@@ -170,6 +213,7 @@ local function buildCard(index: number)
 		tier = tier,
 		name = name,
 		blurb = blurb,
+		effectRow = effectRow,
 		tallyBackground = tallyBackground,
 		tallyFill = tallyFill,
 		voteCount = voteCount,
@@ -198,6 +242,41 @@ local function ensureCards(count: number)
 	for index, card in cards do
 		card.button.Visible = index <= count
 		card.button.Size = UDim2.new(1 / count, -(12 * (count - 1)) / count, 1, 0)
+	end
+end
+
+-- Refill a card's effect chips from its candidate. Pool pattern like the avatar row:
+-- build lazily, toggle visibility, never churn instances on a 0.5s replication tick.
+local function setEffects(card, effects, tint)
+	local row = card.effectRow
+	if not row then
+		return
+	end
+	local pool = card.effectChips
+	if not pool then
+		pool = {}
+		card.effectChips = pool
+	end
+
+	local list = (type(effects) == "table") and effects or {}
+	for index = 1, math.max(#list, #pool) do
+		local effect = list[index]
+		local chip = pool[index]
+		if effect and EFFECT_ICON[effect] then
+			if not chip then
+				chip = Theme.label({
+					Size = UDim2.new(0, 20, 0, 18),
+					TextSize = 13,
+					Font = Theme.Font.Heading,
+				}, row)
+				pool[index] = chip
+			end
+			chip.Text = EFFECT_ICON[effect]
+			chip.TextColor3 = tint
+			chip.Visible = true
+		elseif chip then
+			chip.Visible = false
+		end
 	end
 end
 
@@ -272,6 +351,7 @@ local function render()
 			card.accent.BackgroundColor3 = color
 			card.tallyFill.BackgroundColor3 = isGamble and Theme.Color.Verdict or Theme.Color.Accent
 			card.tier.TextColor3 = color
+			setEffects(card, candidate.Effects, color)
 
 			local fraction = (candidate.Tally or 0) / maxTally
 			card.tallyFill.Size = UDim2.new(fraction, 0, 1, 0)
@@ -300,16 +380,48 @@ local function updateTimer()
 	timerLabel.TextColor3 = remaining <= 5 and Theme.Color.Combat or Theme.Color.Accent
 end
 
+-- Look up the Effects of each winning modifier by name so the stamp can show the same
+-- icons the card did. Requires Modifiers; only called from showStamp, which the nil-guard
+-- already protects.
+local function effectIconsFor(modifierNames)
+	local ok, Modifiers = pcall(require, game:GetService("ReplicatedStorage").Shared.Modifiers)
+	if not ok then
+		return ""
+	end
+	local icons = {}
+	for _, name in modifierNames do
+		local def = Modifiers.ById[name] or Modifiers.ById[string.lower(name)]
+		if not def then
+			for _, candidate in pairs(Modifiers.ById) do
+				if candidate.DisplayName == name then
+					def = candidate
+					break
+				end
+			end
+		end
+		if def then
+			for _, effect in def.Effects or {} do
+				local icon = EFFECT_ICON[effect]
+				if icon and not table.find(icons, icon) then
+					table.insert(icons, icon)
+				end
+			end
+		end
+	end
+	return table.concat(icons, " ")
+end
+
 function VoteUI.showStamp(modifierNames: { string }, duration: number)
 	-- A short round can resolve before the client has built this UI: Bootstrap connects the
 	-- replication handlers before it calls `init`. There is nothing to draw on yet, so skip it
 	-- rather than erroring on a nil label.
-	if not stampOverlay or not stampTitle or not stampDetail then
+	if not stampOverlay or not stampTitle or not stampDetail or not stampIcons then
 		return
 	end
 
 	stampTitle.Text = "APPROVED"
 	stampDetail.Text = table.concat(modifierNames, "  +  ")
+	stampIcons.Text = effectIconsFor(modifierNames)
 	stampOverlay.Visible = true
 	if stampTween then
 		stampTween:Cancel()
@@ -422,20 +534,32 @@ function VoteUI.init(options)
 	Theme.stroke(Theme.Color.Accent, 6, stampCard)
 
 	stampTitle = Theme.label({
-		Position = UDim2.new(0, 0, 0, 16),
-		Size = UDim2.new(1, 0, 0, 44),
+		Position = UDim2.new(0, 0, 0, 12),
+		Size = UDim2.new(1, 0, 0, 38),
 		Text = "APPROVED",
-		TextSize = 42,
+		TextSize = 38,
 		Font = Theme.Font.Display,
 		TextColor3 = Theme.Color.Accent,
 		ZIndex = 22,
 	}, stampCard)
 
-	stampDetail = Theme.label({
-		Position = UDim2.new(0, 12, 0, 70),
-		Size = UDim2.new(1, -24, 0, 76),
+	-- The winner's mechanics, as icons: the same chips the voter saw on their card, so the
+	-- stamp reads as the arena contract, not just a name.
+	stampIcons = Theme.label({
+		Position = UDim2.new(0, 0, 0, 52),
+		Size = UDim2.new(1, 0, 0, 26),
 		Text = "",
-		TextSize = 26,
+		TextSize = 20,
+		Font = Theme.Font.Heading,
+		TextColor3 = Theme.Color.PaperDim,
+		ZIndex = 22,
+	}, stampCard)
+
+	stampDetail = Theme.label({
+		Position = UDim2.new(0, 12, 0, 82),
+		Size = UDim2.new(1, -24, 0, 72),
+		Text = "",
+		TextSize = 24,
 		TextWrapped = true,
 		Font = Theme.Font.Display,
 		TextColor3 = Theme.Color.Paper,
