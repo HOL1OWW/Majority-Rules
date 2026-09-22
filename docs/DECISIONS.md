@@ -1154,3 +1154,37 @@ ballot automatically. Building the map and unlocking the modifier pool are the s
 **Consequences.** All arena design knowledge now lives in docs (the tag table in
 assets/arenas/README.md, doc 14) instead of generator code. ArenaProbe's placement guard has no
 generated clutter to police; its sightline/spawn/loot checks still apply to hand builds.
+
+### D-049 — Shots follow the mouse cursor, not the camera
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** The client sent `Camera.CFrame.LookVector` as every shot's direction. In third person
+that is the direction to whatever sits at **screen centre**, so clicking an enemy near the screen
+edge fired past them — reported as "it doesn't shoot where the mouse is pointing".
+
+**Decision.** `WeaponController.aimDirection()` builds the ray from
+`Camera:ViewportPointToRay(UserInputService:GetMouseLocation())`. `GetMouseLocation` already
+includes the topbar inset, so `ViewportPointToRay` (not ScreenPointToRay) is the correct pairing.
+Touch devices have no cursor and keep the camera-vector fallback.
+
+**Consequences.** Crosshair-accurate shooting at any screen position. The seven temporary
+`FireGate`/`DIAG` log lines from the same hunt were removed with the diagnosis complete.
+
+### D-050 — Bots fight the vote: melee rounds give bots melee attacks
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** `botProfile()` explicitly skipped melee weapons, so a melee-only round (e.g. swords)
+gave every bot a `nil` profile: no shooting, no attacking of any kind, seven mannequins standing
+in the sand. The log even announced "the round's loadout has no ranged weapon, so bots will not
+shoot back" — a warning describing a bug as if it were weather.
+
+**Decision.** Bots now take the **first weapon in the round's loadout, melee included**. The
+existing engage logic already uses the weapon's own `Range`, so a sword bot closes to ~9 studs and
+swings through the same `botFire` → `resolveShot` path as a gun bot — same damage, same rules, no
+special-cased melee AI. A bot should be a genuine threat with whatever the vote handed out.
+
+**Consequences.** `FIRE_INTERVAL_SCALE` (2.4×) now also paces melee swings; a sword's 0.6 s
+fire-rate means a swing every ~1.4 s at contact range. Melee bots can still be outrun — sprint
+moves faster than a 9-stud lunge can close.

@@ -286,28 +286,23 @@ end
 
 local function handleFire(player: Player, tool: Instance, origin: Vector3, direction: Vector3)
 	if MatchState.State ~= "Live" then
-		Log.debug("FireGate: %s blocked by phase=%s", player.Name, MatchState.State)
 		return
 	end
 	if not MatchState.Alive[player] then
-		Log.debug("FireGate: %s blocked by not-alive", player.Name)
 		return
 	end
 	if protectionActive(player) then
-		Log.debug("FireGate: %s blocked by spawn protection", player.Name)
 		return
 	end
 
 	local character = player.Character
 	if not character or not tool:IsDescendantOf(character) then
-		Log.debug("FireGate: %s blocked by tool-not-in-character", player.Name)
 		return
 	end
 
 	local weaponId = tool:GetAttribute("WeaponId")
 	local profile = Weapons.get(weaponId)
 	if not profile then
-		Log.debug("FireGate: %s blocked by unknown weapon '%s'", player.Name, tostring(weaponId))
 		return
 	end
 
@@ -327,12 +322,10 @@ local function handleFire(player: Player, tool: Instance, origin: Vector3, direc
 	if not infiniteWeapon and not infiniteRound then
 		local ammo = tool:GetAttribute("Ammo") or 0
 		if ammo <= 0 then
-			Log.debug("FireGate: %s blocked by empty ammo on %s", player.Name, tool.Name)
 			return
 		end
 		tool:SetAttribute("Ammo", ammo - 1)
 		if ammo - 1 <= 0 then
-			Log.debug("FireGate: %s emptied %s, reloading in %.1fs", player.Name, tool.Name, profile.ReloadTime or 1.5)
 			reloadTool(tool, profile)
 		end
 	end

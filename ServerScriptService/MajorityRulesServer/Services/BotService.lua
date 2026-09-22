@@ -141,12 +141,14 @@ local function botFolder(): Folder
 	return container
 end
 
---! The gun a bot carries: the first weapon in the round's loadout that is not melee. A melee-only
---! round therefore produces bots that close in and do not shoot, which is a fair reading of the vote.
+--! The weapon a bot carries: the first entry in the round's loadout — melee included. A melee-only
+--! round used to produce a nil profile and bots that never attacked at all (D-050), which read as
+--! "the vote broke the game". Now bots fight the vote they were given: a sword-wielding bot closes
+--! distance and swings, which is what a player would do with the same weapon.
 local function botProfile()
 	for _, weaponId in CombatService.currentLoadout() do
 		local profile = Weapons.get(weaponId)
-		if profile and not Weapons.isMelee(profile) then
+		if profile then
 			return profile
 		end
 	end
