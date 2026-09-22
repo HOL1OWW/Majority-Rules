@@ -32,6 +32,10 @@ local stampOverlay
 local stampCard
 local stampTitle
 local stampIcons
+local tooltip
+local tooltipText
+local showTooltip -- defined in init once the tooltip instance exists
+local hideTooltip
 local stampDetail
 local cards = {}
 local thumbCache = {}
@@ -240,12 +244,21 @@ local function chipForKind(pool, index, icon, row)
 				Font = Theme.Font.Heading,
 			}, row)
 		end
+		-- Hover wiring lives at creation, not per render: pool slots persist across the
+		-- 0.5s replication tick, and per-render connects would stack handlers.
+		chip.MouseEnter:Connect(function()
+			showTooltip(chip)
+		end)
+		chip.MouseLeave:Connect(function()
+			hideTooltip()
+		end)
 		pool[index] = chip
 	end
 	return chip
 end
 
-local function fillChip(slot, icon, tint)
+local function fillChip(slot, token, icon, tint)
+	slot:SetAttribute("EffectToken", token)
 	if icon.kind == "image" then
 		slot.Image = "rbxassetid://" .. icon.value
 		slot.ImageColor3 = Color3.new(1, 1, 1)
@@ -277,7 +290,7 @@ local function setEffects(card, effects, tint)
 		local icon = effect and EffectIcons.get(effect) or nil
 		if icon then
 			local chip = chipForKind(pool, index, icon, row)
-			fillChip(chip, icon, tint)
+			fillChip(chip, effect, icon, tint)
 		elseif pool[index] then
 			pool[index].Visible = false
 		end
@@ -319,6 +332,7 @@ local function render()
 	local voteVisible = roundState == "VoteOpen" or roundState == "VoteLock" or roundState == "TieBreak"
 	root.Visible = voteVisible
 	if not voteVisible then
+		hideTooltip() -- a chip can stay hovered into the transform; never leave a ghost tip
 		return
 	end
 
@@ -430,7 +444,13 @@ local function renderStampIcons(modifierNames)
 							ZIndex = 22,
 						}, stampIcons)
 					end
-					fillChip(slot, icon, Theme.Color.PaperDim)
+					fillChip(slot, effect, icon, Theme.Color.PaperDim)
+					slot.MouseEnter:Connect(function()
+						showTooltip(slot)
+					end)
+					slot.MouseLeave:Connect(function()
+						hideTooltip()
+					end)
 				end
 			end
 		end
@@ -537,6 +557,63 @@ function VoteUI.init(options)
 	}, root)
 	local layout = Theme.listLayout(cardRow, Enum.FillDirection.Horizontal, 12)
 	layout.VerticalAlignment = Enum.VerticalAlignment.Top
+
+	-- Shared hover tooltip: one frame per ScreenGui, repositioned next to whichever chip
+	-- the pointer is over. Chained above the vote UI so it floats over cards and stamps.
+	tooltip = Theme.frame({
+		Name = "EffectTooltip",
+		AnchorPoint = Vector2.new(0.5, 1),
+		AutomaticSize = Enum.AutomaticSize.Y, -- native wrap sizing; no stale TextBounds math
+		Size = UDim2.new(0, 300, 0, 0),
+		BackgroundColor3 = Theme.Color.Ink,
+		BackgroundTransparency = 0.05,
+		Visible = false,
+		ZIndex = 40,
+	}, screenGui)
+	Theme.corner(6, tooltip)
+	Theme.stroke(Theme.Color.GraphiteLine, 1, tooltip)
+	tooltipText = Theme.label({
+		Position = UDim2.new(0, 10, 0, 6),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		Size = UDim2.new(1, -20, 0, 0),
+		Text = "",
+		TextSize = 13,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Font = Theme.Font.Body,
+		TextColor3 = Theme.Color.Paper,
+		ZIndex = 41,
+	}, tooltip)
+	local tipCorner = Instance.new("UICorner")
+	tipCorner.CornerRadius = UDim.new(0, 6)
+	tipCorner.Parent = tooltipText
+
+	showTooltip = function(chip)
+		local text = EffectIcons.helpFor(chip:GetAttribute("EffectToken"))
+		if not text then
+			tooltip.Visible = false
+			return
+		end
+		tooltipText.Text = text
+		-- clamp above/below the chip, and inside the viewport on both axes
+		local cam = workspace.CurrentCamera
+		local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		local width = tooltip.AbsoluteSize.X > 0 and tooltip.AbsoluteSize.X or 300
+		local x = math.clamp(chip.AbsolutePosition.X + chip.AbsoluteSize.X / 2, width / 2 + 8, vp.X - width / 2 - 8)
+		local y = chip.AbsolutePosition.Y - 8
+		if y - tooltip.Size.Y.Offset < 0 then
+			tooltip.AnchorPoint = Vector2.new(0.5, 0)
+			y = chip.AbsolutePosition.Y + chip.AbsoluteSize.Y + 8
+		else
+			tooltip.AnchorPoint = Vector2.new(0.5, 1)
+		end
+		tooltip.Position = UDim2.new(0, x, 0, y)
+		tooltip.Visible = true
+	end
+	hideTooltip = function()
+		tooltip.Visible = false
+	end
 
 	-- The verdict stamp: the moment the vote stops being a menu and becomes a decision.
 	stampOverlay = Theme.frame({
