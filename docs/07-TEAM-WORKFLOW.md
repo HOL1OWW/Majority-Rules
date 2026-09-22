@@ -423,3 +423,30 @@ require(ServerStorage.Tools.ArenaValidator).report(game.ServerStorage.Arenas:Fin
 
 ---
 
+## 10. If Team Test hangs on the loading screen (Bloxstrap)
+
+Team Test asks Windows to open a `roblox-player:` link so a real game client can join your
+Studio session. If a launcher mod (Bloxstrap and friends) owns that link, the special test
+client it spawns boots on Studio's internal channel and kills itself within a second —
+the host then waits on the loading screen forever. Symptom signature: Studio's log shows
+only "Play solo" sessions, and the client log stops ~9 lines in at
+`RobloxChannel has been set to zfullclientrecording`.
+
+Fix (no admin needed): point the protocol back at the official client.
+
+```bat
+reg add "HKCU\Software\Classes\roblox-player\shell\open\command" /ve /d "\"%LOCALAPPDATA%\Roblox\Versions\<version>\RobloxPlayerBeta.exe\" %1" /f
+```
+
+`<version>` is the folder under `%LOCALAPPDATA%\Roblox\Versions` that contains a
+`RobloxPlayerBeta.exe`. Both teammates must do this — the fix is per-machine. Before editing,
+save a revert file:
+
+```bat
+reg export "HKCU\Software\Classes\roblox-player" "%USERPROFILE%\Desktop\roblox-player-backup.reg" /y
+```
+
+Double-clicking that `.reg` restores Bloxstrap's launch hook exactly.
+
+---
+
