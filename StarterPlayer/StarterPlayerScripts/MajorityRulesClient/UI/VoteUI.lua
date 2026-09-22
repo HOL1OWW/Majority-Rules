@@ -16,6 +16,7 @@
 local Players = game:GetService("Players")
 
 local Theme = require(script.Parent.Theme)
+local EffectIcons = require(script.Parent.EffectIcons)
 
 local VoteUI = {}
 
@@ -38,37 +39,7 @@ local stampTween
 
 local TIER_LABEL = { "TIER 1", "TIER 2", "TIER 3" }
 
--- One emoji per Effects token. Chosen so the row reads as a sentence of mechanics at a
--- glance: float, slide, bounce, darkness. A modifier with an unmapped effect simply gets
--- no chip — silent, never wrong. Text glyphs rather than image assets: zero uploads, and
--- they inherit the category tint so chaos reads chaos at a glance.
-local EFFECT_ICON = {
-	GravityDown = "🪶",
-	GravityUp = "🔺",
-	AirTime = "🎈",
-	AirJump = "⏫",
-	Bouncy = "🫧",
-	Drift = "🧊",
-	ZeroFriction = "🧊",
-	FastWalk = "👟",
-	SlowWalk = "🐌",
-	NoJump = "🚫",
-	Collapse = "💥",
-	Cover = "📦",
-	Hazard = "⚠️",
-	Lava = "🌋",
-	Gamble = "🎰",
-	InfiniteAmmo = "♾️",
-	Lifesteal = "🩸",
-	LoadoutOverride = "🔫",
-	NoRanged = "🎯",
-	LowHealth = "❤️‍🔥",
-	Ricochet = "⚡",
-	Shrink = "📉",
-	VisionLimited = "🌫️",
-	Darkness = "🌑",
-	Example = "❓",
-}
+
 
 local function fetchThumbnail(userId: number): string
 	local ok, url = pcall(function()
@@ -245,8 +216,50 @@ local function ensureCards(count: number)
 	end
 end
 
+-- Fill one chip slot from an icon descriptor. Image icons need an ImageLabel (TextLabel
+-- has no Image property); emoji need a TextLabel. The pool keeps whichever class it built
+-- first, so a kind flip (emoji -> asset after an upload lands) rebuilds that one slot.
+local function chipForKind(pool, index, icon, row)
+	local wantImage = icon.kind == "image"
+	local chip = pool[index]
+	if chip and chip:IsA("ImageLabel") ~= wantImage then
+		chip:Destroy()
+		chip = nil
+		pool[index] = nil
+	end
+	if not chip then
+		if wantImage then
+			chip = Instance.new("ImageLabel")
+			chip.BackgroundTransparency = 1
+			chip.Size = UDim2.new(0, 18, 0, 18)
+			chip.Parent = row
+		else
+			chip = Theme.label({
+				Size = UDim2.new(0, 22, 0, 18),
+				TextSize = 13,
+				Font = Theme.Font.Heading,
+			}, row)
+		end
+		pool[index] = chip
+	end
+	return chip
+end
+
+local function fillChip(slot, icon, tint)
+	if icon.kind == "image" then
+		slot.Image = "rbxassetid://" .. icon.value
+		slot.ImageColor3 = Color3.new(1, 1, 1)
+		slot.ImageTransparency = 0
+	else
+		slot.Text = icon.value
+		slot.TextColor3 = tint
+	end
+	slot.Visible = true
+end
+
 -- Refill a card's effect chips from its candidate. Pool pattern like the avatar row:
 -- build lazily, toggle visibility, never churn instances on a 0.5s replication tick.
+-- A slot is a TextLabel with Image fields set when an asset exists (one class, two modes).
 local function setEffects(card, effects, tint)
 	local row = card.effectRow
 	if not row then
@@ -261,21 +274,12 @@ local function setEffects(card, effects, tint)
 	local list = (type(effects) == "table") and effects or {}
 	for index = 1, math.max(#list, #pool) do
 		local effect = list[index]
-		local chip = pool[index]
-		if effect and EFFECT_ICON[effect] then
-			if not chip then
-				chip = Theme.label({
-					Size = UDim2.new(0, 20, 0, 18),
-					TextSize = 13,
-					Font = Theme.Font.Heading,
-				}, row)
-				pool[index] = chip
-			end
-			chip.Text = EFFECT_ICON[effect]
-			chip.TextColor3 = tint
-			chip.Visible = true
-		elseif chip then
-			chip.Visible = false
+		local icon = effect and EffectIcons.get(effect) or nil
+		if icon then
+			local chip = chipForKind(pool, index, icon, row)
+			fillChip(chip, icon, tint)
+		elseif pool[index] then
+			pool[index].Visible = false
 		end
 	end
 end
@@ -380,15 +384,20 @@ local function updateTimer()
 	timerLabel.TextColor3 = remaining <= 5 and Theme.Color.Combat or Theme.Color.Accent
 end
 
--- Look up the Effects of each winning modifier by name so the stamp can show the same
--- icons the card did. Requires Modifiers; only called from showStamp, which the nil-guard
--- already protects.
-local function effectIconsFor(modifierNames)
+-- Build the stamp's icon row: every effect of every winning modifier, deduplicated by
+-- token. Uses the same descriptor path as the cards, so image assets and emoji fallback
+-- stay consistent between ballot and verdict.
+local function renderStampIcons(modifierNames)
+	for _, child in stampIcons:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
 	local ok, Modifiers = pcall(require, game:GetService("ReplicatedStorage").Shared.Modifiers)
 	if not ok then
-		return ""
+		return
 	end
-	local icons = {}
+	local seen = {}
 	for _, name in modifierNames do
 		local def = Modifiers.ById[name] or Modifiers.ById[string.lower(name)]
 		if not def then
@@ -399,16 +408,33 @@ local function effectIconsFor(modifierNames)
 				end
 			end
 		end
-		if def then
-			for _, effect in def.Effects or {} do
-				local icon = EFFECT_ICON[effect]
-				if icon and not table.find(icons, icon) then
-					table.insert(icons, icon)
+		for _, effect in def and def.Effects or {} do
+			if not seen[effect] then
+				seen[effect] = true
+				local icon = EffectIcons.get(effect)
+				if icon then
+					local slot
+					if icon.kind == "image" then
+						slot = Instance.new("ImageLabel")
+						slot.BackgroundTransparency = 1
+						slot.Size = UDim2.new(0, 22, 0, 22)
+						slot.ZIndex = 22
+						slot.Parent = stampIcons
+					else
+						slot = Theme.label({
+							Size = UDim2.new(0, 24, 0, 24),
+							Text = "",
+							TextSize = 18,
+							Font = Theme.Font.Heading,
+							TextColor3 = Theme.Color.PaperDim,
+							ZIndex = 22,
+						}, stampIcons)
+					end
+					fillChip(slot, icon, Theme.Color.PaperDim)
 				end
 			end
 		end
 	end
-	return table.concat(icons, " ")
 end
 
 function VoteUI.showStamp(modifierNames: { string }, duration: number)
@@ -421,7 +447,7 @@ function VoteUI.showStamp(modifierNames: { string }, duration: number)
 
 	stampTitle.Text = "APPROVED"
 	stampDetail.Text = table.concat(modifierNames, "  +  ")
-	stampIcons.Text = effectIconsFor(modifierNames)
+	renderStampIcons(modifierNames)
 	stampOverlay.Visible = true
 	if stampTween then
 		stampTween:Cancel()
@@ -544,16 +570,16 @@ function VoteUI.init(options)
 	}, stampCard)
 
 	-- The winner's mechanics, as icons: the same chips the voter saw on their card, so the
-	-- stamp reads as the arena contract, not just a name.
-	stampIcons = Theme.label({
-		Position = UDim2.new(0, 0, 0, 52),
-		Size = UDim2.new(1, 0, 0, 26),
-		Text = "",
-		TextSize = 20,
-		Font = Theme.Font.Heading,
-		TextColor3 = Theme.Color.PaperDim,
+	-- stamp reads as the arena contract, not just a name. Slots are built per stamp.
+	stampIcons = Theme.frame({
+		Position = UDim2.new(0.5, -90, 0, 52),
+		Size = UDim2.new(0, 180, 0, 26),
+		BackgroundTransparency = 1,
 		ZIndex = 22,
 	}, stampCard)
+	local stampLayout = Theme.listLayout(stampIcons, Enum.FillDirection.Horizontal, 6)
+	stampLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	stampLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 	stampDetail = Theme.label({
 		Position = UDim2.new(0, 12, 0, 82),
