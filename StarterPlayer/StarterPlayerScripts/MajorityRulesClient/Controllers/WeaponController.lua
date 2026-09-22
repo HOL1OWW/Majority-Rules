@@ -18,8 +18,13 @@ local Workspace = game:GetService("Workspace")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Weapons = require(ReplicatedStorage:WaitForChild("Shared").Weapons.WeaponRegistry)
+local Log = require(ReplicatedStorage:WaitForChild("Shared").Util.Log)
 
 local WeaponController = {}
+
+--! Fire-path diagnostics (revert after the "weapons don't shoot" hunt). Every silent early-return
+--! in the client fire path gets one debug line, so a dead click names its own gate.
+local DIAG = true
 
 local remotes
 local player
@@ -52,15 +57,27 @@ end
 local function fire(tool: Tool)
 	local profile = profileOf(tool)
 	if not profile then
+		if DIAG then
+			Log.debug("DIAG fire: no profile (WeaponId=" .. tostring(tool:GetAttribute("WeaponId")) .. ")")
+		end
 		return
 	end
 	local character = player.Character
 	if not character or not tool:IsDescendantOf(character) then
+		if DIAG then
+			Log.debug("DIAG fire: no character or tool not in character")
+		end
 		return
 	end
 	local origin = muzzleOrigin(tool)
 	if not origin then
+		if DIAG then
+			Log.debug("DIAG fire: no muzzle origin (no Handle?)")
+		end
 		return
+	end
+	if DIAG then
+		Log.debug("DIAG fire: firing " .. tostring(tool:GetAttribute("WeaponId")))
 	end
 	remotes.WeaponFire:FireServer(tool, origin, Workspace.CurrentCamera.CFrame.LookVector)
 end
