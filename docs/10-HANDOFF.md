@@ -33,9 +33,15 @@ to export it). While frozen, code changes to `BuildFoundry.lua` do **not** reach
 
 **Speed and scale changed on 2026-09-22 (D-046, D-047).** Base WalkSpeed is 22 and **sprint exists**:
 Shift, server-authoritative through `GameplayService`'s stamina state machine (client only sends
-`Net.SprintInput`; `SprintController` renders a guessed bar). The **Colosseum** is a second arena —
-a 180-stud open sand floor, drum wall that shrinking modifiers crush inward, rising cover — built by
-`Dev/BuildColosseum.lua` and now the fallback build. The hand-authored Foundry still works as-is.
+`Net.SprintInput`; `SprintController` renders a guessed bar).
+
+**The arena was reset the same day (D-048), by the team's explicit request.** The Foundry and the
+Colosseum are deleted — generators, geometry, the stale `.rbxm` export, all of it. What exists now
+is `Dev/BuildOutline.lua`: a **massive simple outline** (500-stud floor, boundary in group "Wall",
+12 spawns, 5 loot points, cameras, daylight) and nothing else. The human team builds the real arena
+on that canvas by hand, with parts; the guide is doc 14, the tag cheat-sheet is
+assets/arenas/README.md. The ballot auto-filters to modifiers the arena's FeatureTags support, so
+the arena grows into the full modifier pool by being built.
 
 **Bots exist now** — `BotService`, Studio-only behind `DevConfig.BotCount`, so a round can be played
 and observed without a second human. Read `docs/11-BOTS.md`. This is what replaced "find a second

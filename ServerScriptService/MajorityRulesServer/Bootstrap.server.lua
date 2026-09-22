@@ -66,8 +66,7 @@ if RunService:IsStudio() then
 	-- Exception: an arena stamped HandAuthored belongs to a human. It is never rebuilt, and its
 	-- hand edits survive every Play — that is what the attribute promises.
 	local builders = {
-		Foundry = require(script.Parent.Dev.BuildFoundry),
-		Colosseum = require(script.Parent.Dev.BuildColosseum),
+		Arena = require(script.Parent.Dev.BuildOutline),
 	}
 	local staleReported = false
 	for _, arena in arenas do
@@ -94,9 +93,9 @@ if RunService:IsStudio() then
 		arenas = ArenaService.availableArenas()
 	end
 	if #arenas == 0 then
-		builders.Colosseum.build()
+		builders.Arena.build()
 		arenas = ArenaService.availableArenas()
-		Log.info("No arena found: built the Colosseum arena")
+		Log.info("No arena found: built the outline arena")
 	end
 end
 if #arenas == 0 then

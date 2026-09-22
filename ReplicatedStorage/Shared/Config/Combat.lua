@@ -8,8 +8,8 @@
 local Combat = {}
 
 -- Player baseline
--- WalkSpeed 22: the arenas are large (the Colosseum's floor alone is a 150-stud radius), so the
--- base pace has to cross them; sprint on top of that for the burst.
+-- WalkSpeed 22: the outline arena is 500 studs across, so the base pace has to cross it; sprint
+-- on top of that for the burst.
 Combat.Health = 100
 Combat.WalkSpeed = 22
 Combat.JumpPower = 50

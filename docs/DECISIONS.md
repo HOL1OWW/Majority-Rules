@@ -1124,3 +1124,33 @@ place arena to its builder **by name**, and the fallback build is now the Coloss
 **Consequences.** The frozen hand-authored Foundry stays playable and untouched; arena choice is
 weighted (`Colosseum` Weight 20 vs Foundry's default 10, so ~2:1). Scaling a ring from the centre
 is the pattern future big arenas should follow for every group a shrink modifier touches.
+
+### D-048 — Arena reset: the outline replaces the Foundry and the Colosseum
+
+**Date:** 2026-09-22 · **Status:** accepted
+
+**Problem.** Three iterations of generated arenas (gray-box, the Foundry, the Colosseum) all built
+geometry the human team then wanted to replace by hand. The team's actual division of labour is
+now clear: humans build the map with parts; systems and tooling serve that map.
+
+**Decision.** Full reset, by explicit request. Deleted: `BuildFoundry.lua`, `BuildColosseum.lua`,
+`assets/arenas/Foundry.rbxm`, and all generated arena geometry. Replaced by
+`Dev/BuildOutline.lua`: a **massive simple outline** — 500-stud floor, four boundary walls in
+transform group "Wall", 12 spawn pads, 5 loot points, 6 vote cameras, a nameplate, neutral
+daylight — and nothing else. Every part is tagged per the arena contract, so the game is fully
+playable on the outline the moment it exists, and all real map content is hand-built from there.
+
+**Why an outline rather than an empty folder.** An empty folder fails the validator and gives no
+spawn/loot/camera surface to test against. The outline is the minimal *playable* canvas: it
+provides the structure, provides none of the look, and never fights a hand edit because
+`HandAuthored` freezes Bootstrap's rebuild check.
+
+**Feature growth path.** The outline declares `FeatureTags = "FlatFloor"` only. The ballot
+auto-filters modifiers by `Requires` against those tags (D-034's registry contract), so the game
+starts with movement/loadout modifiers only. As the map grows tagged features — `Cover` (rising
+cover, TransformGroup "Cover"), `Tiles` (collapsing floor), `Hazard` — those modifiers join the
+ballot automatically. Building the map and unlocking the modifier pool are the same act.
+
+**Consequences.** All arena design knowledge now lives in docs (the tag table in
+assets/arenas/README.md, doc 14) instead of generator code. ArenaProbe's placement guard has no
+generated clutter to police; its sightline/spawn/loot checks still apply to hand builds.
