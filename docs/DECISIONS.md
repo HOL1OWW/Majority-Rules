@@ -1233,3 +1233,14 @@ rockets, grenades and any future homing round.
   5s and takes the player view the moment a character appears.
 - **Late-join sync** was re-verified end to end: server `PlayerAdded` snapshot + client
   `RoundInfo` boot fetch + the retry above close the loop for mid-match joins.
+
+### D-053 — Tag-stripped arenas get adopted, not fatal; Team Test runs the published place
+- Team Test boots the published place on a cloud server, where `RunService:IsStudio()` is
+  false — so the Studio-only auto-build fallback never runs there, and any arena whose
+  contract stamps were lost (Save to File, copy/paste; .rbxmx drops CollectionService tags)
+  fatal-errors with "No arena in ServerStorage.Arenas" only in Team Test.
+- Bootstrap now adopts a tag-less-but-valid arena before the Studio guard: it must contain
+  at least one MRArenaSpawn part to qualify; adoption stamps ArenaId/MaxPlayers/FloorY,
+  adds MRArena, and freezes it HandAuthored. A stray empty model can never masquerade.
+- The place's Foundry was re-stamped directly (MRArena + ArenaId + MaxPlayers 8) and
+  validates PASS. Keep it HandAuthored: it is the human team's map.

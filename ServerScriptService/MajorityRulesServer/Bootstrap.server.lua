@@ -13,6 +13,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -58,6 +59,42 @@ end
 
 -- 3. an arena must exist, and in Studio it must be one this source describes
 local arenas = ArenaService.availableArenas()
+
+-- 3a. Adoption: a hand-built arena that reached the place through a path that drops tags
+-- (Save to File, copy/paste) is healthy geometry with no contract stamps — the game cannot
+-- see it, and a Team Test cloud server has no builder fallback to recover with, so boot dies.
+-- Validate before adopting: the stamps are only added when the geometry itself is real
+-- (tagged spawns exist), so a stray empty model can never masquerade as a playable arena.
+-- Adoption freezes the arena as hand-authored: a human built it, so no generator may rebuild it.
+if #arenas == 0 then
+	local folder = ArenaService.container()
+	if folder then
+		for _, candidate in folder:GetChildren() do
+			if candidate:IsA("Model") and not CollectionService:HasTag(candidate, Tags.Arena) then
+				local spawnCount = 0
+				for _, descendant in candidate:GetDescendants() do
+					if descendant:IsA("BasePart") and CollectionService:HasTag(descendant, Tags.Spawn) then
+						spawnCount += 1
+					end
+				end
+				if spawnCount > 0 then
+					candidate:SetAttribute(Tags.Attr.ArenaId, candidate.Name)
+					candidate:SetAttribute(Tags.Attr.MaxPlayers, 8)
+					candidate:SetAttribute(Tags.Attr.FloorY, 0)
+					candidate:SetAttribute("HandAuthored", true)
+					CollectionService:AddTag(candidate, Tags.Arena)
+					table.insert(arenas, candidate)
+					Log.warn(
+						"Arena '%s' had no MRArena tag (its stamps were lost in a Save to File or paste); adopted it: %d spawn(s), frozen as hand-authored. Run ArenaValidator to confirm it fully.",
+						candidate.Name,
+						spawnCount
+					)
+				end
+			end
+		end
+	end
+end
+
 if RunService:IsStudio() then
 	-- The reference arena is *generated*, so the copy sitting in the place is a build artifact that
 	-- can silently be several revisions old: the game plays the old hall while the source says
