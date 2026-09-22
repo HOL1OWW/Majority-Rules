@@ -7,9 +7,10 @@ session** (yours) is outstanding. Until then every chip shows its emoji, exactly
 
 ## Part A — what already exists
 
-- `assets/icons/staging/*.png` — 25 icons, 256×256, flat line style, transparent
-  background, drawn in the theme's ink color. One per `Effects` token.
-- `assets/icons/contact_sheet.png` — all 25 labeled on one sheet; review it before
+- `assets/icons/staging/*.png` — 24 icons, 256×256, flat line style, transparent
+  background, drawn in the theme's ink color. One per `Effects` token that modifiers
+  declare; the dev/tutorial `Example` token is intentionally emoji-only.
+- `assets/icons/contact_sheet.png` — all 24 labeled on one sheet; review it before
   uploading.
 - `tools/generate_effect_icons.py` — regenerates everything (`py tools/generate_effect_icons.py`).
   Edit a glyph there if you want different art, re-run, re-upload.
@@ -38,7 +39,7 @@ session** (yours) is outstanding. Until then every chip shows its emoji, exactly
   are the familiar glyphs. Mixed states are legal mid-migration.
 - The APPROVED stamp shows the same icons for the winning modifier.
 - `EffectIcons.countAssets()` (Command Bar) returns how many tokens have real assets —
-  25 means complete.
+  24 means complete (plus 1 intentional emoji-only dev token).
 
 ## Style rules for future icons
 

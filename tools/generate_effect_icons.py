@@ -17,8 +17,10 @@ INK = (24, 25, 30, 255)  # Theme Ink; the UI tints white so this is just the dra
 OUT = os.path.join(os.path.dirname(__file__), "..", "assets", "icons")
 STAGE = os.path.join(os.path.dirname(__file__), "..", "assets", "icons", "staging")
 
-# One entry per Effects token in the modifier registry (must stay in sync with
-# VoteUI.EFFECT_ICON, which remains the emoji fallback).
+# One entry per Effects token modifiers actually declare — verified by
+# tests/effect_help_check.py, which fails if a declared token has no art. The `pistol`
+# glyph below is reserved for a future ranged-weapon token; it is not in this table
+# because no modifier declares PistolOnly today.
 ICONS = {
     "GravityDown": "feather",
     "GravityUp": "uparrow",
@@ -31,7 +33,6 @@ ICONS = {
     "SlowWalk": "snail",
     "NoJump": "crosscircle",
     "Collapse": "crack",
-    "PistolOnly": "pistol",
     "Cover": "crate",
     "Hazard": "warning",
     "Lava": "lava",
@@ -166,6 +167,8 @@ def g_crack(d):
     stroke(d, [(152, 150), (196, 186)], w=12)
 
 
+# reserved: kept for a future ranged-weapon effect token
+# (PistolOnly was never a real Effects token — the pistol modifier uses LoadoutOverride).
 def g_pistol(d):
     rounded(d, [52, 88, 176, 132], 10)
     poly(d, [(176, 88), (204, 88), (204, 112)], close=False)

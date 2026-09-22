@@ -18,9 +18,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EffectIcons = {}
 
 -- Upload order: this exact list is what the harvester matches filenames against.
+-- Exactly the tokens modifiers actually declare (checked by tests/effect_help_check.py).
+-- `Example` is deliberately absent: the dev/tutorial token keeps its emoji fallback.
 EffectIcons.ORDER = {
 	"GravityDown", "GravityUp", "AirTime", "AirJump", "Bouncy", "Drift",
-	"ZeroFriction", "FastWalk", "SlowWalk", "NoJump", "Collapse", "PistolOnly",
+	"ZeroFriction", "FastWalk", "SlowWalk", "NoJump", "Collapse",
 	"Cover", "Hazard", "Lava", "Gamble", "InfiniteAmmo", "Lifesteal",
 	"LoadoutOverride", "NoRanged", "LowHealth", "Ricochet", "Shrink",
 	"VisionLimited", "Darkness",
@@ -39,7 +41,6 @@ EffectIcons.ASSET = {
 	SlowWalk = "",
 	NoJump = "",
 	Collapse = "",
-	PistolOnly = "",
 	Cover = "",
 	Hazard = "",
 	Lava = "",
@@ -126,9 +127,9 @@ EffectIcons.GLYPH_OF = {
 	GravityDown = "feather", GravityUp = "uparrow", AirTime = "balloon",
 	AirJump = "doublechevronup", Bouncy = "bubble", Drift = "icecrystal",
 	ZeroFriction = "icecrystal", FastWalk = "boot", SlowWalk = "snail",
-	NoJump = "crosscircle", Collapse = "crack", PistolOnly = "pistol",
+	NoJump = "crosscircle", Collapse = "crack",
 	Cover = "crate", Hazard = "warning", Lava = "lava", Gamble = "dice",
-	InfinityAmmo = "infinity", InfiniteAmmo = "infinity",
+	InfiniteAmmo = "infinity",
 	Lifesteal = "droplet", LoadoutOverride = "gunswap", NoRanged = "crosshairslash",
 	LowHealth = "heart", Ricochet = "ricochet", Shrink = "shrinkarrow",
 	VisionLimited = "fog", Darkness = "moon",
