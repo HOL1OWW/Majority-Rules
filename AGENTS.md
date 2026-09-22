@@ -18,6 +18,12 @@ answer it; update that file when the state changes.
 probes, console output, Play control, viewport capture), the three-datamodel mental model, the
 blind spots, and the working protocols proven on this project. Probing the live place beats theorizing from files, every time.
 
+**And when YOU discover something new — a capability another agent gave you no hint of, a
+silent failure mode, a workaround that unlocked something — write it into
+`docs/15-AI-ACCESS.md` (§7, the discovery ledger) in the same session, and commit it.**
+Every model has a different reach; knowledge that stays in a chat log dies with the thread.
+This duty applies to every agent, including future-you.
+
 ---
 
 ## The hard rules

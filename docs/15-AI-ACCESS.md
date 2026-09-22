@@ -154,7 +154,54 @@ Plain shell access to the dev machine gives you:
 
 ---
 
-## 7. Where the rest of the context lives
+## 7. The discovery ledger — your most important duty
+
+**Every AI model has a different reach.** One agent discovers a tool, a quirk, or a wall that
+another will never stumble on by itself. If a discovery is not written here before the thread
+ends, it dies with the conversation and the next agent burns an hour re-proving it (or worse,
+assumes the wall is permanent and designs around a limit that does not exist).
+
+So this is a standing rule, not a suggestion:
+
+> **If you discovered a capability, technique, or limit that this document did not already
+> describe, YOU must add it to this document in the same session, and commit it.**
+
+The test: anything that surprised you — a tool doing more than its description, a silent
+failure mode, a workaround that unlocked something — is a discovery. "It's in the chat log"
+never counts; the chat log is the one place future agents cannot read.
+
+### How to write an entry
+
+Append under the matching heading below (create a new heading if none fits). One entry, one
+claim, dated, with the proof and the error signature someone would see:
+
+```
+### YYYY-MM-DD — <one-line claim>
+<What was discovered. How to reproduce or use it. What it costs or breaks.>
+<Proof: the exact error, log line, or probe result that demonstrated it.>
+```
+
+### Capability discoveries (things an agent can now do)
+
+*(empty — be the first to add one)*
+
+### Limit discoveries (things that look possible but are not)
+
+### 2026-09-22 — `require()` inside client-side `execute_luau` returns a sandbox copy
+During Play, calling `require(SomeModuleScript)` from an `execute_luau` probe on the **Client**
+datamodel can return a **detached copy of the module**, not the one the running game uses.
+Calling its functions silently does nothing: a UI-driving call like `Scoreboard.onMatchResult(...)`
+returns success while the real PlayerGui never changes. Cost: two wasted probe rounds reading
+"injected ok" from a module that touched nothing.
+**Workaround:** verify client-side state through instances (read PlayerGui descendants directly),
+not through module state; drive UI only through the real event pipeline (server broadcast →
+connection). Server-side `require` of server modules has not shown this split.
+
+### Technique discoveries (protocols that worked)
+
+---
+
+## 8. Where the rest of the context lives
 
 - `docs/10-HANDOFF.md` — current state, what's installed, what's half-done. **Start here.**
 - `docs/07-TEAM-WORKFLOW.md` — the human-side sync/publish workflows.
