@@ -13,6 +13,11 @@ writing code or geometry.
 is half-done, and the next three steps. Do not re-derive state from the code if that file can
 answer it; update that file when the state changes.
 
+**If you are an AI agent and assume you cannot see inside Roblox Studio, you are wrong.** Read
+`docs/15-AI-ACCESS.md` before doing anything else: it maps every access path (live datamodel
+probes, console output, Play control, viewport capture), the three-datamodel mental model, the
+blind spots, and the working protocols proven on this project. Probing the live place beats theorizing from files, every time.
+
 ---
 
 ## The hard rules
