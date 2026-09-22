@@ -43,6 +43,7 @@ local GameplayService = require(script.Parent.GameplayService)
 local LootService = require(script.Parent.LootService)
 local MatchState = require(script.Parent.MatchState)
 local PlayerService = require(script.Parent.PlayerService)
+local StatsService = require(script.Parent.StatsService)
 local TransformScheduler = require(script.Parent.TransformScheduler)
 local VoteService = require(script.Parent.VoteService)
 
@@ -676,6 +677,10 @@ local function endMatch()
 
 	publish("MatchEnd", { Winner = winner and winner.DisplayName or nil })
 
+	--! Close the match bookkeeping: MatchEnded fires here so StatsService commits career
+	--! stats, streaks reset, and the state machine settles on MatchEnd.
+	MatchState.endMatch()
+
 	for index, player in ranked do
 		AnalyticsService.matchCompleted(player, index, MatchState.Points[player] or 0)
 	end
@@ -733,6 +738,7 @@ end
 
 local function onPlayerAdded(player: Player)
 	MatchState.ensurePlayer(player)
+	StatsService.onPlayerEnsured(player)
 	AnalyticsService.event(player, "Joined")
 
 	Net.trySend(player, Net.Events.RoundState, snapshot())

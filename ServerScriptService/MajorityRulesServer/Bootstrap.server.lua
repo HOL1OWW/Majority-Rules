@@ -30,6 +30,7 @@ local CombatService = require(Services.CombatService)
 local GameplayService = require(Services.GameplayService)
 local PlayerService = require(Services.PlayerService)
 local RoundService = require(Services.RoundService)
+local StatsService = require(Services.StatsService)
 
 Log.info("MAJORITY RULES — server booting")
 
@@ -70,6 +71,30 @@ if #arenas == 0 then
 	local folder = ArenaService.container()
 	if folder then
 		for _, candidate in folder:GetChildren() do
+			--! D-056: the arena root must be a Model, but moving an arena between a file and
+			--! the place can re-root it as a Folder. A Folder with tagged spawns is a healthy
+			--! arena in the wrong shape: convert it, or it is invisible to every code path
+			--! (availableArenas filters IsA("Model")) and boot falls back to the outline.
+			if candidate:IsA("Folder") then
+				local hasSpawns = false
+				for _, d in candidate:GetDescendants() do
+					if d:IsA("BasePart") and CollectionService:HasTag(d, Tags.Spawn) then
+						hasSpawns = true
+						break
+					end
+				end
+				if hasSpawns then
+					local model = Instance.new("Model")
+					model.Name = candidate.Name
+					for _, child in candidate:GetChildren() do
+						child.Parent = model
+					end
+					model.Parent = folder
+					candidate:Destroy()
+					candidate = model
+					Log.warn("Arena '%s' was a Folder (re-rooted by a save or paste); converted it to a Model", model.Name)
+				end
+			end
 			if candidate:IsA("Model") and not CollectionService:HasTag(candidate, Tags.Arena) then
 				local spawnCount = 0
 				for _, descendant in candidate:GetDescendants() do
@@ -136,6 +161,21 @@ if RunService:IsStudio() then
 	end
 end
 if #arenas == 0 then
+	--! D-055: the fallback builder must run everywhere, not just in Studio. A Team Test
+	--! server boots the published place in the cloud, reports IsStudio() == false, and used
+	--! to die here whenever that published copy was missing its arena (e.g. saved while the
+	--! Arenas folder was temporarily out in Workspace). Building the outline in the cloud is
+	--! always better than not booting; the next real publish replaces it.
+	local ok, BuildOutline = pcall(require, script.Parent.Dev.BuildOutline)
+	if ok then
+		BuildOutline.build()
+		arenas = ArenaService.availableArenas()
+		Log.warn("No arena found: built the outline arena as a fallback (%s)", RunService:IsStudio() and "Studio" or "cloud/server")
+	else
+		Log.warn("No arena found and the fallback builder failed to load")
+	end
+end
+if #arenas == 0 then
 	Log.error("No arena in ServerStorage.Arenas. The game cannot run without one.")
 end
 if #arenas > 0 then
@@ -188,6 +228,7 @@ end
 -- it for bots (DevConfig BotCount), so this is harmless in a live server.
 CombatService.start()
 BotService.setup()
+StatsService.start()
 RoundService.start()
 
 Log.info("Boot complete")

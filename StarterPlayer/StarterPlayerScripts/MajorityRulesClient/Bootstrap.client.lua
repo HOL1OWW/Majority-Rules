@@ -33,12 +33,15 @@ local remotes = {
 	RoundInfo = Net.func(Net.Functions.RoundInfo),
 }
 
+local Scoreboard = require(UI.Scoreboard)
+
 -- ---------------------------------------------------------------------------------------
 -- Replication in
 -- ---------------------------------------------------------------------------------------
 
 Net.event(Net.Events.RoundState).OnClientEvent:Connect(function(payload)
 	State.setRound(payload)
+	Scoreboard.onRoundState(payload)
 end)
 
 Net.event(Net.Events.VoteState).OnClientEvent:Connect(function(payload)
@@ -57,6 +60,15 @@ end)
 
 Net.event(Net.Events.MatchResult).OnClientEvent:Connect(function(payload)
 	State.setMatchResult(payload)
+	Scoreboard.onMatchResult(payload)
+end)
+
+Net.event(Net.Events.ScoreboardLive).OnClientEvent:Connect(function(payload)
+	Scoreboard.onLive(payload)
+end)
+
+Net.event(Net.Events.KillFeed).OnClientEvent:Connect(function(payload)
+	Scoreboard.onKillFeed(payload)
 end)
 
 Net.event(Net.Events.Notify).OnClientEvent:Connect(function(payload)
@@ -68,6 +80,7 @@ end)
 -- ---------------------------------------------------------------------------------------
 
 Hud.init({ state = State })
+Scoreboard.init({ state = State })
 Banner.init({ state = State })
 VoteUI.init({
 	state = State,

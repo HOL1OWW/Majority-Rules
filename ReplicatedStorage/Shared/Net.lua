@@ -29,6 +29,8 @@ Net.Events = {
 	WeaponTracer = "WeaponTracer", -- (shooter, from, to, didHit) cosmetic only
 	TransformFx = "TransformFx", -- ({ ModifierIds, Duration, ... }) drives the cinematic
 	Notify = "Notify", -- ({ Text, Kind })
+	ScoreboardLive = "ScoreboardLive", -- ({ Round, Total, Standings, Feed }) periodic full standings
+	KillFeed = "KillFeed", -- ({ KillerName, VictimName }) every credited kill, any victim type
 }
 
 Net.Functions = {

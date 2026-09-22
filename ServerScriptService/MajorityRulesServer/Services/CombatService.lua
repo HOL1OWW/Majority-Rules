@@ -426,6 +426,14 @@ function CombatService.creditKill(victimPlayer: Player?, victimHumanoid: Humanoi
 	if killerStats then
 		killerStats.Kills += 1
 	end
+
+	--! The kill feed is a broadcast, not a signal: bots have no PlayerDied path, and bot-v-bot
+	--! kills deserve the same theatre. StatsService does not need to know this happened.
+	local victimName = victimPlayer and victimPlayer.DisplayName
+		or (victimHumanoid.Parent and victimHumanoid.Parent.Name or "someone")
+	local killerName = killer:IsA("Player") and killer.DisplayName or ("[BOT] " .. killer.Name)
+	Net.broadcast(Net.Events.KillFeed, { KillerName = killerName, VictimName = victimName })
+
 	Net.trySend(killer, Net.Events.Notify, { Text = "KILL", Kind = "kill" })
 	return killer
 end

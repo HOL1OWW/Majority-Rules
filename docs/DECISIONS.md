@@ -1244,3 +1244,33 @@ rockets, grenades and any future homing round.
   adds MRArena, and freezes it HandAuthored. A stray empty model can never masquerade.
 - The place's Foundry was re-stamped directly (MRArena + ArenaId + MaxPlayers 8) and
   validates PASS. Keep it HandAuthored: it is the human team's map.
+
+### D-054 — The leaderboard system is StatsService + Scoreboard, built on existing ledgers.
+
+MatchState already tracked points/K/D/round-wins and MatchResult already carried full
+standings that no UI consumed; the leaderboard system adds the three missing layers:
+
+1. **leaderstats** (StatsService): Kills / Points / Streak on the Roblox player list,
+   refreshed on the 3s board loop while a match runs.
+2. **Live boards**: Net.Events.ScoreboardLive broadcasts full standings (players AND bots)
+   every 3s; the client hold-Tab board (UI/Scoreboard) renders them with a K/D/PTS table.
+   Bots need no BotService knowledge: creditKill already keys bot kills into MatchState.Points
+   by character Model, so any Points entry keyed by an Instance is a bot combatant.
+3. **Career stats**: DataStore `MRCareerStats_v1`, saved at match end and on leave. Studio
+   has no DataStores, so it degrades loudly-but-safely (warn + save-on-leave-only). Wires
+   MatchState.endMatch() -> MatchEnded signal -> StatsService commit; RoundService calls
+   endMatch() once after the MatchResult broadcast.
+
+Kill feed is a CombatService broadcast (Net.Events.KillFeed), not a StatsService signal, so
+bot-v-bot and bot-v-player kills get the same theatre as player kills; streaks (3+ within
+12s) ping the killer directly. The podium resolves display names itself from UserId because
+MatchResult standings carry no Name field.
+
+### D-056 — An arena root must be a Model; moving arenas between file and place can re-root them as Folders.
+
+After the Foundry round-trip (Workspace for hand-building, back into ServerStorage.Arenas),
+its root re-rooted as a **Folder**. Every contract path filters `IsA("Model")` —
+availableArenas, adoption, transforms — so a Folder-rooted arena is invisible while every
+descendant tag survives intact. Boot then falls back to the outline arena, which looks like
+"my map was replaced". Bootstrap's adoption net now converts a Folder with tagged spawns
+into a Model before the adoption check runs (and logs it loudly).

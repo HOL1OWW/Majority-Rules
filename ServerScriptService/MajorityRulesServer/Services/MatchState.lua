@@ -136,4 +136,12 @@ function MatchState.rankedPlayers(): { Player }
 	return players
 end
 
+--! Close the match: flip the state and tell every interested service at once. RoundService
+--! calls this after the MatchResult broadcast; StatsService commits career stats on it.
+function MatchState.endMatch()
+	MatchState.Active = false
+	MatchState.State = "MatchEnd"
+	MatchState.Signals.MatchEnded:Fire()
+end
+
 return MatchState
