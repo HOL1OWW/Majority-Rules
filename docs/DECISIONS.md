@@ -1218,3 +1218,18 @@ connection (FxController `shotConnected`).
 **Rule of thumb going forward:** the client may never send a *direction* it also expects to be
 honored — directions are derived server-side from two points. The same contract covers
 rockets, grenades and any future homing round.
+
+### D-052 — The Team Test "hang" was three client bugs, not the launch chain
+- After the Bloxstrap protocol fix, Team Test sessions ran (server + client both booted),
+  but the joiner saw nothing: the fire path errored on every click, and the camera could
+  fall into the vote-showcase orbit permanently when joining mid-round.
+- **Fire contract** (root cause of "weapons don't shoot"): the client sent a 4-field
+  fire packet while the server read 5 — the camera position landed in the aimPoint slot,
+  deriving a ray toward the shooter's own camera. A leftover call to the deleted
+  `aimDirection()` also errored on every click, killing the auto-fire loop permanently.
+  Client now sends `(tool, origin, nil, aimPoint, aimFrom)`; legacy direction is optional.
+- **Camera race**: `Live` arriving before the character exists sent the camera to
+  spectate → no other human in Team Test → orbit forever. The handoff now retries for
+  5s and takes the player view the moment a character appears.
+- **Late-join sync** was re-verified end to end: server `PlayerAdded` snapshot + client
+  `RoundInfo` boot fetch + the retry above close the loop for mid-match joins.

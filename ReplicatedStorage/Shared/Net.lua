@@ -18,7 +18,7 @@ Net.Events = {
 	-- client -> server
 	VoteCast = "VoteCast", -- (modifierId: string)
 	Objection = "Objection", -- ()  trailing player injects a wildcard candidate
-	WeaponFire = "WeaponFire", -- (tool: Instance, origin: Vector3, direction: Vector3)
+	WeaponFire = "WeaponFire", -- (tool: Instance, origin: Vector3, direction: Vector3?, aimPoint: Vector3?, aimFrom: Vector3?) — D-051
 	SprintInput = "SprintInput", -- (sprinting: boolean) client asks; server owns the state machine
 
 	-- server -> client

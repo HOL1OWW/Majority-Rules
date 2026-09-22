@@ -167,7 +167,24 @@ local function onRoundState(payload)
 		if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
 			setMode("player")
 		else
-			setMode("spectate")
+			-- Joining mid-round: the character may not exist yet at this exact instant. Give the
+			-- spawner a moment before falling back to spectate; if a character appears during the
+			-- wait, take the player view. Without this, a Team Test joiner falls through to
+			-- spectate → no other players to follow → the vote-showcase orbit, forever.
+			task.spawn(function()
+				for _ = 1, 20 do
+					task.wait(0.25)
+					if state.round.State ~= "Live" and state.round.State ~= "Countdown" then
+						return -- the round moved on; a later state event owns the camera now
+					end
+					local character = player.Character
+					if character and character:FindFirstChildOfClass("Humanoid") then
+						setMode("player")
+						return
+					end
+				end
+				setMode("spectate")
+			end)
 		end
 		return
 	end

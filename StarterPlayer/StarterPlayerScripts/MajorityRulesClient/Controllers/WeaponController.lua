@@ -120,10 +120,9 @@ local function fire(tool: Tool)
 	local aimAt = aimPoint()
 	local aimFrom = Camera.CFrame.Position
 
-	-- The server derives the real direction from muzzle → aim point (D-051); this old field is
-	-- kept only for back-compat so the remote contract stays intact during the swap.
-	remotes.WeaponFire:FireServer(tool, origin, aimAt, aimFrom)
-	remotes.WeaponFire:FireServer(tool, origin, aimDirection())
+	-- D-051 contract: (tool, muzzleOrigin, legacyDirection, aimPoint, aimFrom). The legacy
+	-- direction slot is sent as nil; the server converges the true ray from muzzle → aim point.
+	remotes.WeaponFire:FireServer(tool, origin, nil, aimAt, aimFrom)
 end
 
 local function stopAutoLoop()
