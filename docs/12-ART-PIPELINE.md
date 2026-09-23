@@ -175,9 +175,17 @@ The arena needs three visual props and the code states the size of each. All thr
 with the built-in tools, measured in the live place, and staged in `Workspace.PROP_STAGING` beside
 the *current* primitives and an R6 character for scale. **Nothing is wired into the game.**
 
+**Update, 2026-09-23.** A fourth prop arrived from a completely different tool: a pistol crate built
+by **Google Antigravity's Gemini agent** driving Blender over an MCP server. It is the first prop
+truly wired in — `Sidearm` weapons now spawn in it (`CrateVisuals`, D-062) — and the first asset
+whose licence is not yet read, which is now a pre-publish blocker rather than a someday note. Ids and
+provenance: `assets/PROVENANCE.md`. Its size comparison is staged in `Workspace.PROP_STAGING` as
+`AGENT_Crate_1to1` (as imported, 1.78 × 0.82 × 1.18) beside `AGENT_Crate_ship` (×3.650, 6.49 × 3.00 ×
+4.32 — the shipping size), with the R6 reference on the same row.
+
 | Prop | What the code requires | Staged result | Distortion |
 | --- | --- | --- | --- |
-| **Weapon crate** | `LootService.buildCrate` builds a 3×3×3 `Part` | 3.00 × 3.48 × 2.86 | uniform only, none |
+| **Weapon crate** | `CrateVisuals` builds a 3×3×3 `Part` by default; `Sidearm` weapons get the uploaded case | 3.00 × 3.48 × 2.86 | uniform only, none |
 | **Cover piece** | `BuildFoundry` authors 7×6×7 | 7.00 × 6.00 × 6.97 | Y ×1.256 only |
 | **Pillar** (decorative) | foundry corner pillars are 8×70×8 blocks | 5.45 × 20.00 × 5.45 | uniform ×0.68 |
 
@@ -221,7 +229,17 @@ version that stated the dimensions numerically was the *worst* of the three. So:
    a contract check could mistake for arena content. The `Assistant-<uuid>` and
    `RBX_AI_GENERATION_ID` markers are worth keeping as provenance.
 4. **Set `CollisionFidelity = Box`.** A 3-stud crate should collide as a box, not as a hull with
-   nooks a bullet can thread.
+   nooks a bullet can thread. (A meshed crate avoids the question: a `Part` collides as its box.
+   **`MeshPart.MeshId` cannot be assigned at runtime in Studio at all** — `lacking capability
+   NotAccessible`, from game code as much as from a probe. Carry the mesh on a `SpecialMesh`, or
+   clone a `MeshPart` that already has one. See D-062.)
+5. **Blender units are not Roblox units — and nothing warns you.** A scene authored in metres imports
+   at **1 unit = 1 stud**, so an 0.82 m crate becomes an 0.82-stud crate: a sixth of a player's
+   height, and **3.66× smaller** than the 3-stud crate `LootService` actually builds. The mesh is
+   valid, the texture lands, and it looks correct in Blender's viewport, so the defect only exists in
+   the game. State the target size in **studs** inside the generator script, then measure the
+   `MeshPart` after import before judging the model. (Measured 2026-09-23 on the pistol crate — see
+   `assets/PROVENANCE.md`.)
 
 ### What the first three props bought, beyond the meshes
 

@@ -35,9 +35,14 @@ local SPAWN_COVER_MARGIN = 3
 local PIVOT_TOLERANCE = 2 -- studs the PrimaryPart may sit off the floor's centre
 local MIN_VOTE_CAMERAS = 3
 local DEFAULT_CLEARANCE = 8 -- used when a loot point declares no ClearanceRadius
-local CRATE_SIZE = 3 -- LootService.buildCrate: a 3x3x3 Part
-local CRATE_SPAWN_HEIGHT = 2.5 -- spawned this far above its loot point
-local CRATE_HALF_DIAGONAL = (Vector3.new(CRATE_SIZE, CRATE_SIZE, CRATE_SIZE) / 2).Magnitude
+-- Crates are no longer all one size: `LootService` builds the visual the weapon's Class calls for,
+-- and a sidearm crate is a flat case wider and deeper than the 3-stud block. A clearance claim is
+-- about the worst case, so both numbers come from `CrateVisuals` rather than sitting here as
+-- constants that can drift away from the crate that actually spawns (see D-062).
+local CrateVisuals = require(Shared.Weapons.CrateVisuals)
+local CRATE_MAX_SIZE = CrateVisuals.largestSize() -- the box the clearance check must assume
+local CRATE_SPAWN_HEIGHT = CrateVisuals.spawnOffset(CRATE_MAX_SIZE).Y -- origin above the loot point
+local CRATE_HALF_DIAGONAL = (CRATE_MAX_SIZE / 2).Magnitude
 local VALID_ANCHOR_STATES = { Shown = true, Hidden = true }
 local VALID_HAZARDS = { Lava = true, Void = true, Trampoline = true, Conveyor = true }
 local VALID_SIZES = { Tiny = true, Small = true, Medium = true, Large = true, Huge = true }
@@ -242,7 +247,7 @@ function ArenaValidator.validate(arena: Instance)
 	-- reference arena shipped four loot points two studs from where cover rises — those crates
 	-- spawn *inside* a cover piece: invisible, and takeable straight through it, because the
 	-- ProximityPrompt sets RequiresLineOfSight = false. Measure the crate LootService actually
-	-- builds (3x3x3, 2.5 studs above the point), not the invisible marker.
+	-- builds, at the size and height `CrateVisuals` gives it, not the invisible marker.
 	local coverParts = groupParts.Cover or {}
 	if #coverParts > 0 then
 		info.minLootClearance = math.huge

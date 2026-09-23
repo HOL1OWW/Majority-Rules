@@ -8,6 +8,10 @@
 	owns every firing path.
 
 	`Ammo = -1` means infinite.
+
+	`Class` is the role/silhouette axis — `Sidearm`, `Primary` or `Melee` — and it is what picks
+	the crate a weapon is delivered in (`CrateVisuals`): a sidearm arrives in a flat case, everything
+	else in the standard block. `Kind` stays the Gun/Melee split, which is about how it fires.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -18,6 +22,7 @@ Weapons.Profiles = {
 	Sidearm = {
 		DisplayName = "SIDEARM",
 		Kind = "Gun",
+		Class = "Sidearm",
 		Damage = 18,
 		Pellets = 1,
 		SpreadDegrees = 1.2,
@@ -32,6 +37,7 @@ Weapons.Profiles = {
 	Pistol = {
 		DisplayName = "PISTOL",
 		Kind = "Gun",
+		Class = "Sidearm",
 		Damage = 22,
 		Pellets = 1,
 		SpreadDegrees = 0.8,
@@ -46,6 +52,7 @@ Weapons.Profiles = {
 	RapidPistol = {
 		DisplayName = "RAPID PISTOL",
 		Kind = "Gun",
+		Class = "Sidearm",
 		Damage = 14,
 		Pellets = 1,
 		SpreadDegrees = 1.8,
@@ -60,6 +67,7 @@ Weapons.Profiles = {
 	Shotgun = {
 		DisplayName = "SHOTGUN",
 		Kind = "Gun",
+		Class = "Primary",
 		Damage = 9,
 		Pellets = 8,
 		SpreadDegrees = 7,
@@ -74,6 +82,7 @@ Weapons.Profiles = {
 	SawnOff = {
 		DisplayName = "SAWN-OFF",
 		Kind = "Gun",
+		Class = "Primary",
 		Damage = 11,
 		Pellets = 10,
 		SpreadDegrees = 11,
@@ -88,6 +97,7 @@ Weapons.Profiles = {
 	Rifle = {
 		DisplayName = "RIFLE",
 		Kind = "Gun",
+		Class = "Primary",
 		Damage = 15,
 		Pellets = 1,
 		SpreadDegrees = 1.1,
@@ -102,6 +112,7 @@ Weapons.Profiles = {
 	SMG = {
 		DisplayName = "SMG",
 		Kind = "Gun",
+		Class = "Primary",
 		Damage = 10,
 		Pellets = 1,
 		SpreadDegrees = 2.4,
@@ -116,6 +127,7 @@ Weapons.Profiles = {
 	Sword = {
 		DisplayName = "SWORD",
 		Kind = "Melee",
+		Class = "Melee",
 		Damage = 34,
 		Pellets = 1,
 		SpreadDegrees = 0,

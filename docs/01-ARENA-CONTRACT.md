@@ -139,9 +139,14 @@ catalogue stays honest.
 * Attributes: `LootWeight` (relative chance), `ClearanceRadius` (how much open space a crate
   needs), `Zone` (free-form label, e.g. `Ring`, `Upper`).
 * **`ClearanceRadius` is enforced, not decorative.** `ArenaValidator` measures the crate
-  `LootService` actually builds (3×3×3, 2.5 studs above the point) against the real, rotated cover
-  boxes and **errors** when a crate would spawn inside cover, or closer to it than the radius it
-  declares. Declaring 8 and delivering 6.36 fails the build. Default when undeclared: 8.
+  `LootService` actually builds — sized and placed by `CrateVisuals` — against the real, rotated
+  cover boxes and **errors** when a crate would spawn inside cover, or closer to it than the radius
+  it declares. Declaring 8 and delivering 6.36 fails the build. Default when undeclared: 8.
+* Crates are **not all one size.** What a crate holds picks its visual: a `Sidearm` arrives in a
+  wider, flatter case, everything else in the standard 3×3×3 block. The check therefore uses the
+  **largest crate any weapon can spawn in**, not the common one — a loot point that is legal for the
+  block can still bury the case. `python tests/crate_visual_check.py` prints the size the check is
+  using, so a crate resize is visible before an arena is edited around it.
 * 4–8 points is the sweet spot. More than 12 and the arena stops having contested space, which
   is where weapon crates get their meaning.
 
